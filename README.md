@@ -24,9 +24,9 @@ All stations, people, suppliers, part numbers and demand are **fictional and sim
 ## Architecture
 
 ```
-Browser (static HTML/JS on Vercel)
+React + Vite on Vercel
   ├─ three.js         3D globe and aircraft
-  ├─ core.js          ledger projection, forecasting, replenishment engine, simulation
+  ├─ lib/engine.js    ledger projection, forecasting, replenishment engine, simulation
   └─ supabase-js ──► Supabase (Postgres + Auth + Realtime)
                        ├─ events        append-only ledger (update/delete blocked by trigger)
                        ├─ items         stock projection, updated by trigger in the same transaction
@@ -63,15 +63,35 @@ Order value and AOG status are recomputed on the server from the part master and
 
 Demo account emails are shown on the sign-in screen (`planner@avilo.test`, `stores.sin@avilo.test`, …). **Passwords are not in this repository**; they are held by the project team.
 
-## Run it locally
+## Project structure
 
-It is a static site. Serve the `public` folder:
-
-```bash
-npx serve public
+```
+src/
+  main.jsx, App.jsx           routing: public landing and sign-in, then one menu per role
+  context/AuthContext.jsx     session and the signed-in person's profile
+  context/LiveContext.jsx     everything the role may read, kept current by Supabase realtime
+  lib/engine.js               ledger projection, forecasting, replenishment engine, simulation
+  lib/model.js                stations, suppliers, fleet, part master, demand history
+  lib/scenes.js               three.js network globe and aircraft parts locator
+  components/                 layout, UI parts, 3D wrappers, icons, logo
+  pages/screens/registry.jsx  every screen by role; menus and routes come from it
+  pages/...                   one folder per area (tower, stores, find, plan, quality, supplier, history, lab, admin, auth)
+supabase/migrations           schema, server functions, seed, grants
+supabase/tests/access_test.sql  role and separation-of-duties checks (rolls back)
+tests/                        engine unit tests (npm test)
+brand/                        logo files
 ```
 
-It connects to the hosted Supabase project in `public/assets/config.js`. The anon key there is public by design; row-level security and the server functions protect the data.
+## Run it locally
+
+```bash
+npm install
+npm run dev
+```
+
+It connects to the hosted Supabase project by default. To use another project, copy `.env.example` to `.env.local` and fill it in. The anon key is public by design; row-level security and the server functions protect the data.
+
+`npm test` runs the engine tests. Paste `supabase/tests/access_test.sql` into the Supabase SQL editor to check the access rules; every row should say PASS.
 
 ## Set up your own database
 
@@ -79,7 +99,7 @@ It connects to the hosted Supabase project in `public/assets/config.js`. The ano
 2. Run the files in `supabase/migrations` in order.
 3. Create users in Supabase Auth and add a row for each in `public.profiles` (`handle`, `name`, `role`, `scope`, `supplier`). The seed uses handles `u-pl`, `u-op1`, `u-op2`, `u-op3`, `u-te`, `u-pm`, `u-co`, `u-su`, `u-ad`, `u-sa`, `u-mv`.
 4. Run `select public.seed_demo();`.
-5. Put your project URL and anon key in `public/assets/config.js`.
+5. Put your project URL and anon key in `.env.local`.
 
 Signed in as Admin, **Reset demo data** in the sidebar restores the starting scenario at any time.
 
