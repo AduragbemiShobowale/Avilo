@@ -61,7 +61,7 @@ Order value and AOG status are recomputed on the server from the part master and
 | Super Admin | Audit log | Platform support, read-only across the organisation |
 | Management viewer | Control tower | Read-only dashboards and the simulation lab |
 
-Demo account emails are shown on the sign-in screen (`planner@avilo.test`, `stores.sin@avilo.test`, …). **Passwords are not in this repository**; they are held by the project team.
+There is no public sign-up: accounts are created for people, as they would be in an airline or MRO. The sign-in screen is e-mail and password only, with a "Forgot your password?" link. **Demo logins are not in this repository**; the project team holds them.
 
 ## Project structure
 
