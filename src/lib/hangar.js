@@ -53,7 +53,9 @@ function beamMaterial(color) {
   })
 }
 
-export function mountHangar(el, { onFrame } = {}) {
+// `focus(w, h)` returns the point on screen where the aircraft should sit (the space the
+// page leaves free); the camera's view is shifted so it always lands there.
+export function mountHangar(el, { onFrame, focus } = {}) {
   if (!webglOK()) { el.classList.add('no-webgl'); return { destroy() {}, start() {} } }
   const still = reduce()
   const small = Math.min(window.innerWidth, window.innerHeight) < 700 // phones: lighter mirror, no shadows
@@ -207,13 +209,23 @@ export function mountHangar(el, { onFrame } = {}) {
   const onMove = (e) => { pointer.tx = (e.clientX / window.innerWidth - 0.5) * 2; pointer.ty = (e.clientY / window.innerHeight - 0.5) * 2 }
   window.addEventListener('pointermove', onMove)
 
+  let aim = 0, offX = 0, offY = 0, zoom = 1
   let raf = 0, w = 0, h = 0, t0 = null, started = false, last = performance.now()
   const proj = new THREE.Vector3()
   function frame(now) {
     raf = requestAnimationFrame(frame)
     if (document.hidden) return
     const cw = el.clientWidth, ch = el.clientHeight
-    if (cw !== w || ch !== h) { w = cw; h = ch; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < 1 ? 55 : 40; camera.updateProjectionMatrix() }
+    if (cw !== w || ch !== h) { w = cw; h = ch; renderer.setSize(w, h, false); camera.aspect = w / h; camera.fov = w / h < 1 ? 58 : 40; aim = 0 }
+    if (now - aim > 500) {
+      aim = now
+      const f = focus ? focus(w, h) : null
+      zoom = f && f.zoom ? f.zoom : 1
+      const fx = f ? Math.max(w * 0.2, Math.min(w * 0.8, f.x)) : w / 2, fy = f ? Math.max(h * 0.25, Math.min(h * 0.75, f.y)) : h / 2
+      offX += (w / 2 - fx - offX) * (offX === 0 ? 1 : 0.5); offY += (h / 2 - fy - offY) * (offY === 0 ? 1 : 0.5)
+      camera.setViewOffset(w, h, offX, offY, w, h)
+      camera.updateProjectionMatrix()
+    }
     const dt = Math.min(0.05, (now - last) / 1000); last = now
     if (started && t0 == null) t0 = now
     const t = started ? (still ? 30 : (now - t0) / 1000) : 0
@@ -248,8 +260,8 @@ export function mountHangar(el, { onFrame } = {}) {
     // camera drift
     pointer.x += (pointer.tx - pointer.x) * 0.04; pointer.y += (pointer.ty - pointer.y) * 0.04
     const tt = still ? 0 : t
-    const th = 0.78 + 0.32 * Math.sin(tt * 0.045)
-    const r = 19 + 1.6 * Math.sin(tt * 0.031) + (1 - ease(t / 6)) * 6
+    const th = 0.8 + 0.2 * Math.sin(tt * 0.045)
+    const r = ((w / h < 1 ? 24 : 18.5) + 1.2 * Math.sin(tt * 0.031)) * zoom + (1 - ease(t / 6)) * 6
     camera.position.set(r * Math.cos(th) + pointer.x * 0.9, 3.4 + 0.9 * Math.sin(tt * 0.037 + 1) - pointer.y * 0.5, r * Math.sin(th))
     camera.lookAt(look.x + pointer.x * 0.6, look.y - pointer.y * 0.3, look.z)
 
