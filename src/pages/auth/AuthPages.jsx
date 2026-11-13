@@ -1,44 +1,75 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { supabase } from '../../lib/supabase'
 import { useAuth } from '../../context/AuthContext'
 import Logo from '../../components/Logo'
-import Icon from '../../components/icons'
+import { mountHangar } from '../../lib/hangar'
 import PasswordInput from '../../components/PasswordInput'
 
-// The path every part takes, drawn on the sign-in screen: shelf, transfer, aircraft.
-function Journey() {
-  return (
-    <div className="journey" aria-hidden="true">
-      <div className="stop"><span className="node"><Icon name="box" size={22} /></span><b>The store</b>receives</div>
-      <div className="leg"><span>scan</span><i className="part" /></div>
-      <div className="stop"><span className="node blue"><Icon name="globe" size={22} /></span><b>Avilo</b>tracks</div>
-      <div className="leg"><span>work order</span></div>
-      <div className="stop"><span className="node"><Icon name="plane" size={22} /></span><b>The aircraft</b>flies</div>
-    </div>
-  )
+// The frame for every signed-out screen: Avilo's hangar at night, live in 3D, with the
+// form floating over it on dark glass. Labels are pinned to things in the scene.
+function useClock() {
+  const [now, setNow] = useState(Date.now())
+  useEffect(() => { const id = setInterval(() => setNow(Date.now()), 30000); return () => clearInterval(id) }, [])
+  const d = new Date(now)
+  return `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}Z`
 }
 
-// The frame for every signed-out screen: the story on the left, the form on the right.
 export function AuthFrame({ children, label = 'Sign in' }) {
+  const stage = useRef(null)
+  const tags = { part: useRef(null), craft: useRef(null), engine: useRef(null) }
+  const clock = useClock()
+  const copy = useRef(null)
+  const card = useRef(null)
+  useEffect(() => {
+    const hangar = mountHangar(stage.current, {
+      onFrame: (f) => {
+        const avoid = [copy.current, card.current].filter(Boolean).map((n) => n.getBoundingClientRect())
+        for (const k of ['part', 'craft', 'engine']) {
+          const el = tags[k].current; if (!el) continue
+          const { x, y } = f[k]
+          const clear = !avoid.some((r) => x > r.left - 230 && x < r.right + 20 && y > r.top - 20 && y < r.bottom + 70)
+          const on = clear && f[k].visible && (k === 'part' ? f.found : f.t > (k === 'craft' ? 3.4 : 4.4))
+          el.style.transform = `translate(${f[k].x}px, ${f[k].y}px)`
+          el.classList.toggle('on', !!on)
+        }
+      },
+    })
+    const go = () => hangar.start()
+    if (window.__aviloIntroDone) go(); else window.addEventListener('avilo:intro-done', go, { once: true })
+    return () => { window.removeEventListener('avilo:intro-done', go); hangar.destroy() }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   return (
-    <div className="gate">
-      <section className="gate-story">
-        <Logo height={64} />
-        <p className="gate-tag">Every aircraft part, located. Across every station, every transfer, every order.</p>
-        <Journey />
-        <div className="gate-who">
-          <div><b>Airline and MRO staff:</b> your account is created by your organisation's administrator. Sign in with the e-mail you were given.</div>
-          <div><b>Suppliers:</b> you join by invitation from the procurement team.</div>
+    <div className="hangar">
+      <div className="hangar-stage" ref={stage} aria-hidden="true" />
+      <div className="hangar-tags" aria-hidden="true">
+        <div className="htag found" ref={tags.part}><span className="mono">HP-10482 · Rack C-04</span><b>Hydraulic pump located</b></div>
+        <div className="htag" ref={tags.craft}><span className="mono">AVL-02 · Stand 2</span><b>C-check in progress</b></div>
+        <div className="htag" ref={tags.engine}><span className="mono">No. 1 engine</span><b>Pump fitted here</b></div>
+      </div>
+      <div className="hangar-ui">
+        <header className="hangar-top">
+          <Logo height={28} />
+          <span className="mono hangar-status"><i /> LHR · Hangar 2 · {clock}</span>
+        </header>
+        <div className="hangar-main">
+          <div className="hangar-copy" ref={copy}>
+            <span className="kicker">Aviation spares control tower</span>
+            <h1>Every aircraft part, located.</h1>
+            <p>Avilo follows every rotable and consumable from the store shelf to the wing, across every station and every transfer, so no aircraft waits for a part that was already in the network.</p>
+          </div>
+          <div className="glass" ref={card}>
+            <div className="glass-head"><span>{label}</span><span className="mono">Avilo</span></div>
+            <div className="glass-body">{children}</div>
+          </div>
         </div>
-      </section>
-      <section className="gate-form">
-        <div className="tag">
-          <div className="tag-head"><span>Avilo · <b>{label}</b></span><span className="mono">Spares control tower</span></div>
-          <div className="tag-body">{children}</div>
-        </div>
-      </section>
+        <footer className="hangar-foot">
+          <span>Accounts are created by your organisation. Suppliers join by invitation.</span>
+          <span className="mono">Capstone prototype · simulated data</span>
+        </footer>
+      </div>
     </div>
   )
 }
@@ -56,7 +87,7 @@ export function Login() {
   }
   return (
     <AuthFrame>
-      <div><h1>Welcome back</h1><p className="muted gap-top">Sign in to see your stations, parts and orders.</p></div>
+      <div><h2 className="glass-title">Welcome back</h2><p className="muted gap-top">Sign in to see your stations, parts and orders.</p></div>
       <form className="stack" onSubmit={submit}>
         <label className="field">E-mail<input type="email" autoComplete="username" placeholder="you@company.com" value={email} onChange={(e) => setEmail(e.target.value)} required /></label>
         <label className="field">Password<PasswordInput autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} required /></label>
@@ -82,7 +113,7 @@ export function Forgot() {
   }
   return (
     <AuthFrame label="Reset password">
-      <div><h1>Forgot your password?</h1><p className="muted gap-top">Enter your e-mail and we will send you a link to choose a new one.</p></div>
+      <div><h2 className="glass-title">Forgot your password?</h2><p className="muted gap-top">Enter your e-mail and we will send you a link to choose a new one.</p></div>
       {done ? (
         <div className="notice good">If an account exists for {email}, a reset link is on its way.</div>
       ) : (
@@ -118,7 +149,7 @@ export function SetPassword({ inApp }) {
   }
   const body = (
     <>
-      <div><h1>{inApp ? 'Change your password' : 'Choose a new password'}</h1></div>
+      <div>{inApp ? <h1>Change your password</h1> : <h2 className="glass-title">Choose a new password</h2>}</div>
       <form className="stack" onSubmit={submit}>
         <label className="field">New password <span className="hint">At least 8 characters</span><PasswordInput autoComplete="new-password" value={p1} onChange={(e) => setP1(e.target.value)} required /></label>
         <label className="field">Type it again<PasswordInput autoComplete="new-password" value={p2} onChange={(e) => setP2(e.target.value)} required /></label>

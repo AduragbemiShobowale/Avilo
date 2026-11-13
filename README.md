@@ -61,7 +61,7 @@ Order value and AOG status are recomputed on the server from the part master and
 | Super Admin | Audit log | Platform support, read-only across the organisation |
 | Management viewer | Control tower | Read-only dashboards and the simulation lab |
 
-There is no public sign-up: accounts are created for people, as they would be in an airline or MRO. The sign-in screen is e-mail and password only, with a "Forgot your password?" link. **Demo logins are not in this repository**; the project team holds them.
+Opening the site plays the Avilo intro (the logo builds itself, once per browser session), then the sign-in screen: a live 3D hangar at night where the doors roll open, the floodlights come on and a scanner finds the lost pump on the racks. Sign-in is e-mail and password only, with "Forgot your password?". There is no public sign-up: accounts are created for people, as in an airline or MRO. **Demo logins are not in this repository**; the project team holds them.
 
 ## Project structure
 
@@ -73,6 +73,9 @@ src/
   lib/engine.js               ledger projection, forecasting, replenishment engine, simulation
   lib/model.js                stations, suppliers, fleet, part master, demand history
   lib/scenes.js               three.js network globe and aircraft parts locator
+  lib/hangar.js               three.js hangar scene behind the sign-in screen
+  lib/aircraft.js             the aircraft model shared by all 3D scenes
+  components/Intro.jsx        the logo loading sequence
   components/                 layout, UI parts, 3D wrappers, icons, logo
   pages/screens/registry.jsx  every screen by role; menus and routes come from it
   pages/...                   one folder per area (tower, stores, find, plan, quality, supplier, history, lab, admin, auth)

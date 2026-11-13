@@ -1,18 +1,26 @@
+import { useCallback, useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './context/AuthContext'
 import Layout from './components/Layout'
-import Logo from './components/Logo'
+import Intro from './components/Intro'
 import { Login, Forgot, SetPassword, AuthFrame } from './pages/auth/AuthPages'
 import { SCREENS } from './pages/screens/registry'
 
-function Splash() {
-  return <div className="splash"><Logo height={34} /><span className="spinner light" /></div>
-}
-
 // Signed out: sign in or reset a password. Accounts are created by the organisation, never self-registered.
 export default function App() {
-  const { session, profile, role, loading, recovery, error, signOut } = useAuth()
-  if (loading) return <Splash />
+  const [intro, setIntro] = useState(true)
+  const done = useCallback(() => setIntro(false), [])
+  const { loading } = useAuth()
+  return (
+    <>
+      {!loading && <Screens />}
+      {intro && <Intro ready={!loading} onDone={done} />}
+    </>
+  )
+}
+
+function Screens() {
+  const { session, profile, role, recovery, error, signOut } = useAuth()
 
   if (!session) {
     return (
