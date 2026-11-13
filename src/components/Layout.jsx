@@ -68,10 +68,10 @@ export default function Layout() {
           ))}
         </nav>
         <div className="side-foot">
-          <div className="me">
+          <NavLink to="/account" className="me" title="Account and password">
             <span className="avatar">{initials(profile?.name)}</span>
             <div><b>{profile?.name}</b><small>{profile?.email}</small></div>
-          </div>
+          </NavLink>
           <button className="side-out" onClick={signOut}><Icon name="out" /> Sign out</button>
         </div>
       </aside>
@@ -79,7 +79,7 @@ export default function Layout() {
       <div className="main">
         <header className="top">
           <button className="icon-btn menu-btn" aria-label="Open menu" onClick={() => setOpen(true)}><Icon name="menu" /></button>
-          <div className="top-title"><span className="crumb">Avilo · {ROLE_LABEL[role]}</span><b>{current?.label || 'Avilo'}</b></div>
+          <div className="top-title"><span className="crumb">Avilo · {ROLE_LABEL[role]}</span><b>{loc.pathname === '/account' ? 'Account & password' : current?.label || 'Avilo'}</b></div>
           <span className="spacer" />
           <span className="pill sim">Simulated data</span>
           <Clock />
