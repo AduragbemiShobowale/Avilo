@@ -6,7 +6,8 @@ import { ROLE_LABEL, fDT, initials } from '../lib/format'
 import { SCREENS } from '../pages/screens/registry'
 import Icon from './icons'
 import Logo from './Logo'
-import { Loading } from './ui'
+import { Loading, Modal } from './ui'
+import PageGuide from './PageGuide'
 
 // Keeps a crash in one page from blanking the whole app. Resets when the route changes.
 class PageErrorBoundary extends Component {
@@ -34,6 +35,7 @@ export default function Layout() {
   const { profile, role, signOut } = useAuth()
   const { S, error, scanner, setScanner } = useLive()
   const [open, setOpen] = useState(false)
+  const [confirmOut, setConfirmOut] = useState(false)
   const loc = useLocation()
   useEffect(() => setOpen(false), [loc.pathname])
 
@@ -68,18 +70,18 @@ export default function Layout() {
           ))}
         </nav>
         <div className="side-foot">
-          <NavLink to="/account" className="me" title="Account and password">
+          <NavLink to="/account" className="me" title="My account">
             <span className="avatar">{initials(profile?.name)}</span>
             <div><b>{profile?.name}</b><small>{profile?.email}</small></div>
           </NavLink>
-          <button className="side-out" onClick={signOut}><Icon name="out" /> Sign out</button>
+          <button className="side-out" onClick={() => setConfirmOut(true)}><Icon name="out" /> Sign out</button>
         </div>
       </aside>
       {open && <div className="scrim" onClick={() => setOpen(false)} />}
       <div className="main">
-        <header className="top">
+        <header className="topbar">
           <button className="icon-btn menu-btn" aria-label="Open menu" onClick={() => setOpen(true)}><Icon name="menu" /></button>
-          <div className="top-title"><span className="crumb">Avilo · {ROLE_LABEL[role]}</span><b>{loc.pathname === '/account' ? 'Account & password' : current?.label || 'Avilo'}</b></div>
+          <div className="top-title"><span className="crumb">Avilo · {ROLE_LABEL[role]}</span><b>{loc.pathname === '/account' ? 'My account' : current?.label || 'Avilo'}</b></div>
           <span className="spacer" />
           <span className="pill sim">Simulated data</span>
           <Clock />
@@ -91,9 +93,16 @@ export default function Layout() {
         </header>
         <main className="page">
           {error && <div className="notice bad">Could not load data: {error}</div>}
+          {current?.guide && <PageGuide key={current.guide} id={current.guide} />}
           {!S ? <Loading /> : <PageErrorBoundary path={loc.pathname}><Outlet /></PageErrorBoundary>}
         </main>
       </div>
+      {confirmOut && (
+        <Modal title="Sign out of Avilo?" onClose={() => setConfirmOut(false)}
+          actions={<><button className="btn" autoFocus onClick={() => setConfirmOut(false)}>Stay signed in</button><button className="btn primary" onClick={() => { setConfirmOut(false); signOut() }}>Sign out</button></>}>
+          <p className="muted">You are signed in as <b>{profile?.name}</b> ({ROLE_LABEL[role]}). You will need your e-mail and password to come back.</p>
+        </Modal>
+      )}
     </div>
   )
 }
