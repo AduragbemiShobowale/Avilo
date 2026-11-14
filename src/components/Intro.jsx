@@ -24,9 +24,13 @@ export default function Intro({ ready, onDone }) {
     try { sessionStorage.setItem('avilo-intro', '1') } catch { /* private mode */ }
     window.__aviloIntroDone = true
     window.dispatchEvent(new Event('avilo:intro-done'))
+  }, [phase, ready])
+  // Remove the intro once the opening animation has finished.
+  useEffect(() => {
+    if (phase !== 'out') return
     const id = setTimeout(onDone, 750)
     return () => clearTimeout(id)
-  }, [phase, ready, onDone])
+  }, [phase, onDone])
 
   return (
     <div className={`intro ${quick ? 'quick' : ''} ${phase === 'out' ? 'out' : ''}`} role="status" aria-label="Loading Avilo">

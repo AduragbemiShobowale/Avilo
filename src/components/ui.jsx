@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import AV from '../lib/engine'
 import { age } from '../lib/format'
 
@@ -66,3 +67,21 @@ export const Loading = () => (
 
 export const part = (pn) => AV.partBy[pn]
 export const uname = (id) => (AV.userBy[id] ? AV.userBy[id].name : 'System')
+
+// A confirmation dialog. Escape or the backdrop closes it.
+export function Modal({ title, children, onClose, actions }) {
+  useEffect(() => {
+    const k = (e) => e.key === 'Escape' && onClose()
+    window.addEventListener('keydown', k)
+    return () => window.removeEventListener('keydown', k)
+  }, [onClose])
+  return (
+    <div className="modal-back" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+        <h2>{title}</h2>
+        <div className="modal-body">{children}</div>
+        <div className="modal-actions">{actions}</div>
+      </div>
+    </div>
+  )
+}

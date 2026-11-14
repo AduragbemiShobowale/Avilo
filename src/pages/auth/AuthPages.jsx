@@ -23,7 +23,20 @@ export function AuthFrame({ children, label = 'Sign in' }) {
   const copy = useRef(null)
   const card = useRef(null)
   useEffect(() => {
-    const hangar = mountHangar(stage.current, {
+    // Built only after the intro has finished: compiling the 3D scene would make the intro stutter.
+    let hangar = null, timer = 0
+    const build = () => { hangar = mountHangar(stage.current, {
+      // keep the aircraft in the space between the headline and the card (or above the card on phones)
+      focus: (w, h) => {
+        const a = copy.current?.getBoundingClientRect(), b = card.current?.getBoundingClientRect()
+        if (!a || !b) return { x: w / 2, y: h / 2 }
+        const gap = b.left - a.right
+        // wide screens: in the gap between the text and the card
+        if (gap >= 320) return { x: a.right + gap * 0.5, y: h * 0.58, zoom: Math.min(1.5, Math.max(1, (w * 0.32) / gap)) }
+        // laptops: in the open space below the headline
+        if (gap > -40) return { x: (a.left + b.left) / 2, y: a.bottom + (h - a.bottom) * 0.42, zoom: 1.45 }
+        return { x: w / 2, y: Math.max(h * 0.28, a.top * 0.62) }
+      },
       onFrame: (f) => {
         const avoid = [copy.current, card.current].filter(Boolean).map((n) => n.getBoundingClientRect())
         for (const k of ['part', 'craft', 'engine']) {
@@ -35,10 +48,11 @@ export function AuthFrame({ children, label = 'Sign in' }) {
           el.classList.toggle('on', !!on)
         }
       },
-    })
-    const go = () => hangar.start()
-    if (window.__aviloIntroDone) go(); else window.addEventListener('avilo:intro-done', go, { once: true })
-    return () => { window.removeEventListener('avilo:intro-done', go); hangar.destroy() }
+    }); hangar.start() }
+    // after the intro: wait for its opening animation; on later visits build straight away
+    const go = () => { timer = setTimeout(build, 780) }
+    if (window.__aviloIntroDone) build(); else window.addEventListener('avilo:intro-done', go, { once: true })
+    return () => { clearTimeout(timer); window.removeEventListener('avilo:intro-done', go); if (hangar) hangar.destroy() }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (

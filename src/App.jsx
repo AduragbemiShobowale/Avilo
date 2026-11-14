@@ -5,6 +5,7 @@ import Layout from './components/Layout'
 import Intro from './components/Intro'
 import { Login, Forgot, SetPassword, AuthFrame } from './pages/auth/AuthPages'
 import { SCREENS } from './pages/screens/registry'
+import MyAccount from './pages/help/MyAccount'
 
 // Signed out: sign in or reset a password. Accounts are created by the organisation, never self-registered.
 export default function App() {
@@ -46,7 +47,7 @@ function Screens() {
     <Routes>
       <Route element={<Layout />}>
         {(SCREENS[role] || []).map((s) => <Route key={s.path} path={s.path} element={<s.component />} />)}
-        <Route path="/account" element={<SetPassword inApp />} />
+        <Route path="/account" element={<MyAccount />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>
