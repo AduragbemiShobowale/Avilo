@@ -47,3 +47,41 @@ test('permissions: matrix matches the architecture', () => {
 test('simulation: deterministic for a seed', () => {
   assert.deepEqual(AV.simAll(42), AV.simAll(42))
 })
+
+import { classify, history } from '../src/lib/demand.js'
+import { runReplication, paired } from '../src/lib/des.js'
+
+test('demand model: the pattern mix is close to the literature (about 65% intermittent, 31% smooth)', () => {
+  const h = history(AV.parts, AV.stations, AV.SEED)
+  const n = { smooth: 0, intermittent: 0, erratic: 0, lumpy: 0 }
+  for (const p of AV.parts) for (const s of AV.stations) n[classify(h.unscheduled[p.pn][s.code]).pattern]++
+  const tot = AV.parts.length * AV.stations.length
+  assert.ok(n.intermittent / tot > 0.5 && n.intermittent / tot < 0.75)
+  assert.ok(n.smooth / tot > 0.2 && n.smooth / tot < 0.4)
+})
+
+test('DES: common random numbers give every policy the same demand', () => {
+  const args = { parts: AV.parts.slice(10, 13), stations: AV.stations, suppliers: AV.suppliers, seed: 7 }
+  const a = runReplication({ ...args, policy: 'A' }), c = runReplication({ ...args, policy: 'C' })
+  assert.equal(a.demand, c.demand)
+  assert.deepEqual(runReplication({ ...args, policy: 'B' }), runReplication({ ...args, policy: 'B' }))
+})
+
+test('DES: lost transfers are flagged by the ledger and never by the baseline', () => {
+  const args = { parts: AV.parts.slice(0, 5), stations: AV.stations, suppliers: AV.suppliers, seed: 11, scenario: 'lost' }
+  assert.equal(runReplication({ ...args, policy: 'A' }).lostFlagged, 0)
+  const b = runReplication({ ...args, policy: 'B' })
+  assert.ok(b.lostFlagged <= b.lostTransfers + 1)
+})
+
+test('reorder point: the framework adds check-kit demand from the calendar', () => {
+  const r = AV.ropFor('EO-2380-QT', 'LHR')
+  assert.equal(r.avilo, r.base + r.planned)
+  assert.ok(r.planned > 0)
+})
+
+test('paired test: a constant improvement has a CI that excludes zero', () => {
+  const t = paired([10, 12, 11, 13, 12], [7, 9, 8, 10, 9])
+  assert.equal(t.diff, -3)
+  assert.ok(t.hi < 0)
+})

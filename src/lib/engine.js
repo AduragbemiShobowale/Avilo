@@ -2,6 +2,8 @@
 // the replenishment engine and the A/B/C simulation lab. Pure functions over the model.
 // Writes never happen here: every change goes through a Supabase server function.
 import AV from './model.js'
+import { classify, plannedDemand, plannedFH } from './demand.js'
+import { runReplication, forecastFor, paired, SCENARIOS, POLICIES } from './des.js'
 
 const DAY = AV.DAY
 AV.clock = () => Date.now()
@@ -109,6 +111,11 @@ AV.tsb = function (y, a, b) {
   }
   return { fitted: f, next: d * z };
 };
+AV.ses = function (y, a) {
+  a = a || 0.2; const f = []; let l = null;
+  for (let t = 0; t < y.length; t++) { f.push(l === null ? NaN : l); l = l === null ? y[t] : l + a * (y[t] - l); }
+  return { fitted: f, next: l || 0 };
+};
 AV.movingMean = function (y) {
   const f = []; let s = 0;
   for (let t = 0; t < y.length; t++) { f.push(t ? s / t : NaN); s += y[t]; }
@@ -137,22 +144,50 @@ AV.aviloRop = function (p, f, fitted, y, Lw) {
   return Math.max(1, Math.ceil(f * Lw + AV.Z[p.crit] * rmse * Math.sqrt(Lw)));
 };
 const stats = (y) => { const m = y.reduce((s, v) => s + v, 0) / y.length; const v = y.reduce((s, x) => s + (x - m) ** 2, 0) / (y.length - 1); return { mean: m, sd: Math.sqrt(v) }; };
-AV.ropFor = function (pn, station) {
+/* Reorder points.
+   classic: what an ERP computes, mean and standard deviation of total weekly demand, 95% service.
+   avilo:   the framework. Unscheduled demand is classified (Syntetos-Boylan) and forecast with the matching
+            method (SES / SBA / TSB), scaled by planned flight hours; known check-kit consumption inside the
+            lead time is added from the check calendar; the lead time is the supplier's observed lead time
+            (mean + 1 sd of recent deliveries) when there are at least 3, otherwise the master lead time. */
+const ropCache = new Map();
+AV.ropFor = function (pn, station, opts) {
+  opts = opts || {};
+  const key = pn + '|' + station + '|' + (opts.leadDays || '');
+  if (ropCache.has(key)) return ropCache.get(key);
+  const out = ropForUncached(pn, station, opts);
+  ropCache.set(key, out);
+  return out;
+};
+function ropForUncached(pn, station, opts) {
   const p = AV.partBy[pn], y = AV.history[pn][station];
   const Lw = p.lead / 7, st = stats(y);
   const classic = Math.max(0, Math.ceil(st.mean * Lw + 1.65 * st.sd * Math.sqrt(Lw)));
-  const fc = AV.croston(y, 0.1, true), f = fc.next;
-  const avilo = AV.aviloRop(p, f, fc.fitted, y, Lw);
-  return { classic, avilo, weekly: f, mean: st.mean, sd: st.sd, Lw, orderUpTo: avilo + Math.ceil(f * 4), method: p.type === 'rotable' ? 'Poisson' : 'forecast-error' };
-};
+  const leadDays = opts.leadDays || p.lead, Lwa = leadDays / 7;
+  const yu = AV.historyUnscheduled[pn][station];
+  const cls = classify(yu);
+  const fc = forecastFor(cls.pattern, yu);
+  const histFH = plannedFH(station, -364, 0) / 52;
+  const fhRatio = histFH > 0 ? Math.min(1.5, Math.max(0.5, plannedFH(station, 0, leadDays) / ((histFH / 7) * leadDays))) : 1;
+  const f = Math.max(0, fc.next) * fhRatio;
+  let base;
+  if (p.type === 'rotable') base = AV.poissonQuantile(f * Lwa, AV.SERVICE_LEVEL[p.crit]);
+  else { const e = fc.e.slice(8); const rmse = Math.sqrt(e.reduce((s, v) => s + v * v, 0) / Math.max(1, e.length)); base = Math.max(1, Math.ceil(f * Lwa + AV.Z[p.crit] * rmse * Math.sqrt(Lwa))); }
+  const planned = plannedDemand(pn, station, 0, leadDays + 7);
+  const avilo = base + planned;
+  const orderUpTo = p.type === 'rotable' ? avilo + 1 : avilo + Math.ceil(f * 4);
+  return { classic, avilo, base, planned, weekly: f, pattern: cls.pattern, adi: cls.adi, cv2: cls.cv2, fhRatio, leadDays, mean: st.mean, sd: st.sd, Lw: Lwa, orderUpTo,
+    method: { smooth: 'SES', intermittent: 'SBA', erratic: 'TSB', lumpy: 'TSB' }[cls.pattern] };
+}
 
 /* ---------- Replenishment engine: recommend, never order ---------- */
 AV.recommend = function (S) {
   const now = AV.clock(), recs = [];
   const transit = AV.transits(S);
+  const lead = AV.observedLead(S);
   for (const p of AV.parts) {
     for (const st of AV.stations) {
-      const r = AV.ropFor(p.pn, st.code);
+      const r = AV.ropFor(p.pn, st.code, { leadDays: lead[p.sup] });
       const onHand = AV.available(S, p.pn, st.code);
       let inbound = 0, overdueIn = 0;
       for (const t of transit) if (t.to === st.code) for (const it of t.items) if (it.pn === p.pn) { if (t.overdue) overdueIn += it.qty; else inbound += it.qty; }
@@ -165,13 +200,23 @@ AV.recommend = function (S) {
       const qty = Math.max(1, r.orderUpTo - ip);
       const id = 'REC-' + p.pn + '-' + st.code;
       const lateral = AV.stations.filter(o => o.code !== st.code).map(o => ({ code: o.code, spare: AV.available(S, p.pn, o.code) - AV.ropFor(p.pn, o.code).avilo })).filter(o => o.spare > 0).sort((a, b) => b.spare - a.spare)[0] || null;
-      const dem = Math.round(r.weekly * (p.lead / 7) * 10) / 10;
-      const why = 'Forecast demand ' + dem + ' ' + p.unit + ' over the ' + p.lead + '-day lead time (SBA). ' + onHand + ' serviceable on hand, ' + inbound + ' in transit, ' + onOrder + ' on order' + (openReq ? ', ' + openReq + ' requested' : '') + '. Reorder point ' + r.avilo + ' at ' + Math.round(AV.SERVICE_LEVEL[p.crit] * 100) + '% service level.' + (overdueIn ? ' ' + overdueIn + ' overdue in transit not counted until received.' : '');
+      const dem = Math.round(r.weekly * r.Lw * 10) / 10;
+      const why = 'Forecast demand ' + dem + ' ' + p.unit + ' over the ' + Math.round(r.leadDays) + '-day lead time (' + r.pattern + ' demand, ' + r.method + ')' + (r.planned ? ' plus ' + r.planned + ' for scheduled checks' : '') + '. ' + onHand + ' serviceable on hand, ' + inbound + ' in transit, ' + onOrder + ' on order' + (openReq ? ', ' + openReq + ' requested' : '') + '. Reorder point ' + r.avilo + ' at ' + Math.round(AV.SERVICE_LEVEL[p.crit] * 100) + '% service level.' + (overdueIn ? ' ' + overdueIn + ' overdue in transit not counted until received.' : '');
       recs.push({ id, pn: p.pn, station: st.code, qty, value: qty * p.cost, why, aog, lateral, rop: r.avilo, ip, crit: p.crit, overdueIn, decision: S.recDecisions[id] || null });
     }
   }
   const rank = (x) => (x.aog ? 0 : 10) + ({ A: 0, B: 1, C: 2 }[x.crit]) + (x.decision ? 20 : 0);
   return recs.sort((a, b) => rank(a) - rank(b) || b.value - a.value);
+};
+
+/* Observed supplier lead time: mean + 1 sd of the last 8 received orders (needs at least 3). */
+AV.observedLead = function (S) {
+  const out = {};
+  for (const sup of AV.suppliers) {
+    const lt = (S.pos || []).filter(o => o.sup === sup.id && o.received && o.sent).sort((a, b) => a.received - b.received).slice(-8).map(o => (o.received - o.sent) / DAY);
+    if (lt.length >= 3) { const st = stats(lt); out[sup.id] = st.mean + st.sd; }
+  }
+  return out;
 };
 
 AV.supBy = Object.fromEntries(AV.suppliers.map(s => [s.id, s]));
@@ -184,63 +229,15 @@ AV.scorecard = function (S, supId) {
   return { n: done.length, onTime, lead };
 };
 
-/* ---------- Simulation lab: the same simulated year under three policies ----------
-   A  Status quo: weekly spreadsheet snapshot, 6% of issues/transfers never logged, classic reorder point.
-   B  Visibility only: real-time ledger, same classic reorder point.
-   C  Full Avilo: real-time ledger, SBA forecast, reorder point by criticality (Poisson for rotables,
-      forecast-error safety stock for consumables). A and B re-estimate from a 104-week mean every 4 weeks; C re-runs SBA.
-   Demand uses common random numbers, so all three policies face the identical year. */
+/* ---------- Simulation lab: discrete-event simulation (src/lib/des.js) ----------
+   The same simulated year under three policies (A baseline, B visibility only, C framework) and four scenarios. */
+AV.SCENARIOS = SCENARIOS;
+AV.POLICIES = POLICIES;
 AV.simulate = function (seed, policy, opts) {
   opts = opts || {};
-  const days = opts.days || 365, miss = opts.missRate == null ? 0.06 : opts.missRate;
-  const m = { demand: 0, filled: 0, stockouts: 0, critical: 0, invValue: 0, orders: 0, expedite: 0 };
-  let pi = 0;
-  for (const p of AV.parts) {
-    for (const st of AV.stations) {
-      pi++;
-      const rD = AV.rng(seed * 31 + pi * 7919);
-      const rO = AV.rng(seed * 17 + pi * 104729 + policy.charCodeAt(0));
-      const y = AV.history[p.pn][st.code];
-      const L = p.lead;
-      const wk = y.slice(); let wsum = 0;
-      let rop, S;
-      const plan = () => {
-        if (policy === 'C') { const fc = AV.croston(wk, 0.1, true); rop = AV.aviloRop(p, fc.next, fc.fitted, wk, L / 7); S = rop + Math.ceil((fc.next / 7) * 28); }
-        else { const sm = stats(wk.slice(-104)), dm = sm.mean / 7, ds = sm.sd / Math.sqrt(7); rop = Math.ceil(dm * L + 1.65 * ds * Math.sqrt(L)); S = rop + Math.ceil(dm * 28); }
-        S = Math.max(S, 1);
-      };
-      plan();
-      let phys = S, rec = S, seen = S;
-      const pipe = [];
-      for (let d = 0; d < days; d++) {
-        for (let i = pipe.length - 1; i >= 0; i--) if (pipe[i].at <= d) { phys += pipe[i].q; rec += pipe[i].q; pipe.splice(i, 1); }
-        const season = 1 + 0.15 * Math.sin(((104 + d / 7) / 52) * 2 * Math.PI);
-        const lift = d >= (opts.shiftDay || 90) ? 1 + (opts.shift || 0) : 1;
-        const dem = AV.dailyDemand(rD, p, st.weight * season * lift);
-        wsum += dem;
-        if (d % 7 === 6) { wk.push(wsum); wsum = 0; }
-        if (d % 28 === 27) plan();
-        const fill = Math.min(dem, phys);
-        phys -= fill; m.demand += dem; m.filled += fill;
-        if (dem > fill) { m.stockouts++; if (p.crit !== 'C') m.critical++; m.expedite += p.crit === 'A' ? 25000 : p.crit === 'B' ? 6000 : 1500; rec = phys; }
-        if (policy === 'A') { for (let k = 0; k < fill; k++) if (rO() >= miss) rec--; if (d % 7 === 0) seen = rec; }
-        else { rec = phys; seen = phys; }
-        const onOrder = pipe.reduce((s, x) => s + x.q, 0);
-        const pos = seen + onOrder;
-        if (pos <= rop) {
-          const q = Math.max(1, S - pos);
-          let lt = L * (1 + 0.3 * rO()); if (rO() < 0.1) lt *= 1.5;
-          pipe.push({ at: d + Math.round(lt), q }); m.orders++;
-        }
-        m.invValue += phys * p.cost;
-      }
-    }
-  }
-  m.invValue /= days;
-  m.fillRate = m.filled / Math.max(1, m.demand);
-  m.holding = m.invValue * 0.25;
-  return m;
+  return runReplication({ parts: AV.parts, stations: AV.stations, suppliers: AV.suppliers, seed, policy, scenario: opts.scenario || 'normal', days: opts.days, overrides: opts.overrides });
 };
 AV.simAll = function (seed, opts) { return { A: AV.simulate(seed, 'A', opts), B: AV.simulate(seed, 'B', opts), C: AV.simulate(seed, 'C', opts) }; };
+AV.paired = paired;
 
 export default AV

@@ -1,3 +1,4 @@
+import { history } from './demand.js'
 // Avilo master data: stations, suppliers, fleet, part master and 104 weeks of demand history.
 // Everything here is SIMULATED and fictional. The live stock ledger lives in Supabase.
 const AV = {}
@@ -74,36 +75,12 @@ AV.roleNames = {
 };
 
 
-/* Daily demand generator shared by history, forecasts and the simulation lab. */
-AV.dailyDemand = function (r, part, weight) {
-  const lam = part.rate * weight;
-  if (part.type === 'rotable') return AV.poisson(r, lam);
-  // consumables: intermittent occurrences with a variable size
-  const occ = Math.min(0.9, lam / 3);
-  if (r() > occ) return 0;
-  let size = 1; const mean = lam / occ;
-  while (size < mean * 3 && r() < 1 - 1 / mean) size++;
-  return size;
-};
-
-/* 104 weeks of demand history per part and station. */
-AV.history = (function () {
-  const r = AV.rng(AV.SEED + 7), out = {};
-  for (const p of AV.parts) {
-    out[p.pn] = {};
-    for (const s of AV.stations) {
-      const weeks = [];
-      for (let w = 0; w < 104; w++) {
-        const season = 1 + 0.15 * Math.sin((w / 52) * 2 * Math.PI);
-        let sum = 0;
-        for (let d = 0; d < 7; d++) sum += AV.dailyDemand(r, p, s.weight * season);
-        weeks.push(sum);
-      }
-      out[p.pn][s.code] = weeks;
-    }
-  }
-  return out;
-})();
+/* 104 weeks of demand history per part and station, from the maintenance-driven demand model
+   (flight hours, check calendar). `history` is total demand; `historyUnscheduled` excludes planned
+   check consumption, which the framework forecasts separately from the check calendar. */
+const H = history(AV.parts, AV.stations, AV.SEED);
+AV.history = H.total;
+AV.historyUnscheduled = H.unscheduled;
 
 AV.users = []
 AV.userBy = {}
