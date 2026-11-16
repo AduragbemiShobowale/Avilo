@@ -226,6 +226,8 @@ button.li:hover { background: var(--surface-2); }
 .intro { position: fixed; inset: 0; z-index: 100; display: grid; place-items: center; align-content: center; gap: 22px; background: radial-gradient(900px 600px at 50% 45%, #12355f 0%, #0B2545 45%, #050c18 100%); color: #fff;
   clip-path: circle(150% at 50% 46%); transition: clip-path .75s cubic-bezier(.7, 0, .3, 1), opacity .75s ease; }
 .intro.out { clip-path: circle(0% at 50% 46%); }
+.intro.quick { transition: opacity .35s ease; }
+.intro.quick.out { clip-path: none; opacity: 0; }
 .intro-radar { position: absolute; left: 50%; top: 46%; width: min(78vmin, 640px); aspect-ratio: 1; transform: translate(-50%, -50%); pointer-events: none; }
 .intro-radar i { position: absolute; inset: 0; border: 1px solid #1B96D233; border-radius: 50%; opacity: 0; animation: ring-in 1s ease-out forwards; }
 .intro-radar i:nth-child(2) { inset: 18%; animation-delay: .12s; } .intro-radar i:nth-child(3) { inset: 36%; animation-delay: .24s; }
@@ -371,3 +373,19 @@ button.li:hover { background: var(--surface-2); }
 .modal { width: min(420px, 100%); background: var(--surface-1); border: 1px solid var(--line); border-radius: 16px; padding: 22px; display: grid; gap: 12px; box-shadow: 0 30px 70px -20px #000a; animation: rise .2s ease forwards; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 @media (max-width: 900px) { .roles-grid, .cando { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- role checklist and approval steps ---------- */
+.lead-line { font-size: 15px; font-weight: 500; }
+.steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.steps li { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 14px; align-items: center; padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.steps li.done { background: var(--ok-bg); border-color: transparent; }
+.steps li.done .step-text b { text-decoration: line-through; text-decoration-color: var(--ok); }
+.steps .tick { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--line); background: var(--surface-1); color: var(--ink); font: 600 13px var(--font-display); cursor: pointer; display: grid; place-items: center; }
+.steps li.done .tick { background: var(--ok); border-color: var(--ok); color: #fff; }
+.step-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.approvals { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.approvals li { display: flex; align-items: center; gap: 8px; color: var(--ink-muted); }
+.approvals .n { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font: 600 11px var(--font-display); border: 1.5px solid var(--line); flex: none; }
+.approvals li.ok { color: var(--ok); } .approvals li.ok .n { background: var(--ok); border-color: var(--ok); color: #fff; }
+.approvals li.now { color: var(--ink); } .approvals li.now .n { border-color: var(--locator); color: var(--link); }
+@media (max-width: 640px) { .steps li { grid-template-columns: 34px minmax(0, 1fr); } .steps li .btn { grid-column: 2; justify-self: start; } }
