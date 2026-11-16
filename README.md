@@ -11,14 +11,17 @@ All stations, people, suppliers, part numbers and demand are **fictional and sim
 | Area | What you can do |
 |---|---|
 | Control tower | 3D globe of stations, transfers and supplier orders; overdue alerts; stock against reorder point; live ledger feed |
-| Stores | Scan or type a part, confirm transfer receipts, send transfers, receive deliveries, issue reserved parts, turn in removed parts |
+| Stores | Scan or type a part, confirm transfer receipts, send transfers, receive deliveries, issue reserved parts, turn in removed parts, send rotables for repair and receive them back, simulated RFID goods-in/goods-out gate with exceptions |
 | Find a part | Search every station and in-transit stock; 3D aircraft shows where the part is fitted; raise routine or AOG requests |
 | Replenishment | Recommendations with their reason, approval path and lateral-transfer alternative; purchase orders; supplier scorecards |
-| Forecasts | Croston, SBA and TSB against the plain mean; classic reorder point next to Avilo's |
+| Forecasts | Demand pattern (Syntetos–Boylan), matching method (SES, SBA or TSB), planned check consumption from the check calendar; classic reorder point next to Avilo's |
+| Supplier lead times | Each order as a timeline (approval, supplier confirmation, supply, inspection); observed lateness per supplier, which sets the planning lead time; CSV export |
+| ERP reconciliation | Import a stock-on-hand extract (Navision/Business Central, AMOS, TRAX, SAP or a spreadsheet) and compare it line by line with the ledger |
 | Quality | Verify certificates, quarantine, release or scrap parts |
-| Supplier portal | Accept, decline, upload certificate and ship own orders only |
+| Supplier portal | Confirm own orders with a delivery date, decline, upload certificate and ship; notifications both ways |
 | Part history | Full event history of any serial or batch |
-| Simulation lab | Status quo vs visibility vs full Avilo over 20 simulated years per scenario |
+| Simulation lab | Discrete-event simulation: baseline vs visibility only vs full framework, four scenarios (normal, AOG spike, delayed supplier, lost transfer); `npm run simulate` writes the Chapter 4 results |
+| Visibility test | H1 evidence: latency from server write to screen over 200 events, and detection of planted lost transfers, ERP mismatches and gate exceptions |
 | Audit log, Users & limits | Append-only decision log; approval limit change needs a second person; permissions matrix |
 
 ## Architecture
@@ -57,9 +60,8 @@ Order value and AOG status are recomputed on the server from the part master and
 | Procurement Manager | Replenishment | Second-level approval; approve approval-limit changes |
 | Compliance Officer | Quality | Verify certificates; quarantine, release and scrap parts; read the audit log |
 | Supplier | My orders | Confirm, decline, upload certificates and ship their own orders |
-| Admin | Users & limits | Manage configuration, propose limit changes, reset demo data |
+| Admin | Users & limits | Manage configuration, propose limit changes, import ERP extracts, run the visibility test, reset demo data |
 | Super Admin | Audit log | Platform support, read-only across the organisation |
-| Management viewer | Control tower | Read-only dashboards and the simulation lab |
 
 Opening the site plays the Avilo intro (the logo builds itself, once per browser session), then the sign-in screen: a live 3D hangar at night where the doors roll open, the floodlights come on and a scanner finds the lost pump on the racks. Sign-in is e-mail and password only, with "Forgot your password?". There is no public sign-up: accounts are created for people, as in an airline or MRO. **Demo logins are not in this repository**; the project team holds them.
 
@@ -100,7 +102,7 @@ It connects to the hosted Supabase project by default. To use another project, c
 
 1. Create a Supabase project.
 2. Run the files in `supabase/migrations` in order.
-3. Create users in Supabase Auth and add a row for each in `public.profiles` (`handle`, `name`, `role`, `scope`, `supplier`). The seed uses handles `u-pl`, `u-op1`, `u-op2`, `u-op3`, `u-te`, `u-pm`, `u-co`, `u-su`, `u-ad`, `u-sa`, `u-mv`.
+3. Create users in Supabase Auth and add a row for each in `public.profiles` (`handle`, `name`, `role`, `scope`, `supplier`). The seed uses handles `u-pl`, `u-op1`, `u-op2`, `u-op3`, `u-te`, `u-pm`, `u-co`, `u-su`, `u-ad`, `u-sa`.
 4. Run `select public.seed_demo();`.
 5. Put your project URL and anon key in `.env.local`.
 

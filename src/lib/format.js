@@ -15,11 +15,24 @@ export const initials = (s) => (s || '?').replace(/[^A-Za-z ]/g, ' ').trim().spl
 export const ROLE_LABEL = {
   superadmin: 'Super Admin', admin: 'Admin', operator: 'Stores Operator', technician: 'Technician',
   planner: 'Supply Chain Planner', procurement: 'Procurement Manager', compliance: 'Compliance Officer',
-  supplier: 'Supplier', viewer: 'Management viewer',
+  supplier: 'Supplier',
 }
 
 export const EVENT_LABEL = {
   RECEIVE: 'Received', VERIFY: 'Certificate verified', CONDITION: 'Condition changed', TRANSFER_OUT: 'Transfer out',
   TRANSFER_IN: 'Transfer received', ISSUE: 'Issued', RESERVE: 'Reserved', RELEASE: 'Reservation released',
-  TURN_IN: 'Turned in', ADJUST: 'Adjusted', SCRAP: 'Scrapped',
+  TURN_IN: 'Turned in', ADJUST: 'Adjusted', SCRAP: 'Scrapped', REPAIR_OUT: 'Sent for repair', REPAIR_IN: 'Back from repair',
+}
+
+// Save rows as a CSV file in the browser (for evidence exports).
+export function downloadCsv(name, rows) {
+  if (!rows.length) return
+  const cols = Object.keys(rows[0])
+  const esc = (v) => (v == null ? '' : /[",\n]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v))
+  const text = [cols.join(','), ...rows.map((r) => cols.map((c) => esc(r[c])).join(','))].join('\n') + '\n'
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv' }))
+  a.download = name
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 }

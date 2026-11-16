@@ -9,19 +9,27 @@ const ms = (t) => (t ? Date.parse(t) : null)
 
 // Turns database rows into the shapes the engine works with.
 async function loadState() {
-  const [profiles, events, requests, pos, decisions, tasks, audit, settings] = await Promise.all([
+  const [profiles, events, requests, pos, decisions, tasks, audit, settings, exceptions, notes, reads, sensor, batches, readers] = await Promise.all([
     readAll('profiles', 'name'), readAll('events', 'id'), readAll('requests', 'ts'), readAll('pos', 'id'),
     readAll('rec_decisions', 'updated_at'), readAll('tasks', 'id'), readAll('audit', 'id'), readAll('settings', 'key'),
+    readAll('exceptions', 'id'), readAll('notifications', 'id'), readAll('notification_reads', 'notification'), readAll('sensor_reads', 'id'),
+    readAll('erp_batches', 'id'), readAll('readers', 'id'),
   ])
   AV.users = profiles.map((p) => ({ id: p.id, handle: p.handle, name: p.name, role: p.role, scope: p.scope || [], supplier: p.supplier, email: p.email }))
   AV.userBy = Object.fromEntries(AV.users.map((u) => [u.id, u]))
   const S = {
     events: events.map((e) => ({ id: 'EV-' + String(e.id).padStart(5, '0'), dbid: e.id, ts: ms(e.ts), type: e.type, item: e.item, pn: e.pn, qty: e.qty == null ? null : Number(e.qty), from: e.from_st, to: e.to_st, trf: e.trf, ref: e.ref, aircraft: e.aircraft, cond: e.cond, cert: e.cert, reason: e.reason, expiry: ms(e.expiry), actor: e.actor, source: e.source })),
     requests: requests.map((r) => ({ id: r.id, pn: r.pn, qty: r.qty, station: r.station, aircraft: r.aircraft, wo: r.wo, priority: r.priority, status: r.status, by: r.by_user, ts: ms(r.ts), note: r.note })),
-    pos: pos.map((o) => ({ id: o.id, sup: o.sup, pn: o.pn, qty: o.qty, station: o.station, value: Number(o.value), status: o.status, sent: ms(o.sent), promised: ms(o.promised), shipped: ms(o.shipped), received: ms(o.received), tracking: o.tracking, approvals: (o.approvals || []).map((a) => ({ by: a.by, ts: ms(a.ts) })), aog: o.aog, note: o.note, certUploaded: o.cert_uploaded })),
+    pos: pos.map((o) => ({ id: o.id, sup: o.sup, pn: o.pn, qty: o.qty, station: o.station, value: Number(o.value), status: o.status, sent: ms(o.sent), acknowledged: ms(o.acknowledged), promised: ms(o.promised), shipped: ms(o.shipped), received: ms(o.received), tracking: o.tracking, approvals: (o.approvals || []).map((a) => ({ by: a.by, ts: ms(a.ts) })), aog: o.aog, note: o.note, certUploaded: o.cert_uploaded })),
     recDecisions: Object.fromEntries(decisions.map((d) => [d.id, { status: d.status, approvals: (d.approvals || []).map((a) => ({ by: a.by, ts: ms(a.ts) })), po: d.po, note: d.note, raisedBy: d.raised_by }])),
     tasks: tasks.map((t) => ({ id: t.id, pn: t.pn, qty: t.qty, from: t.from_st, to: t.to_st, req: t.req, status: t.status, why: t.why })),
     audit: audit.map((a) => ({ ts: ms(a.ts), by: a.by_user, action: a.action, object: a.object, detail: a.detail })),
+    exceptions: exceptions.map((x) => ({ id: x.id, ts: ms(x.ts), kind: x.kind, object: x.object, station: x.station, detail: x.detail, status: x.status, resolvedBy: x.resolved_by, resolvedAt: ms(x.resolved_at), note: x.note })),
+    notifications: notes.map((n) => ({ id: n.id, ts: ms(n.ts), kind: n.kind, object: n.object, body: n.body, station: n.station })).sort((a, b) => b.ts - a.ts),
+    readIds: new Set(reads.map((r) => r.notification)),
+    sensorReads: sensor.map((r) => ({ id: r.id, ts: ms(r.ts), reader: r.reader, item: r.item, result: r.result })).sort((a, b) => b.ts - a.ts),
+    erpBatches: batches.map((b) => ({ id: b.id, ts: ms(b.ts), by: b.by_user, filename: b.filename, system: b.system, rows: b.rows, rejected: b.rejected || [] })),
+    readers,
     limit: 5000,
     pendingLimit: null,
   }
@@ -30,6 +38,9 @@ async function loadState() {
     if (s.key === 'pending_limit') S.pendingLimit = { value: Number(s.value.value), by: s.value.by }
   }
   S.items = AV.project(S.events)
+  const lead = AV.observedLead(S)
+  AV.leadFactor = Object.fromEntries(Object.entries(lead).map(([k, v]) => [k, v.factor]))
+  S.leadStats = lead
   return S
 }
 

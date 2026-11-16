@@ -71,7 +71,7 @@ AV.SERVICE_LEVEL = { A: 0.98, B: 0.95, C: 0.9 };
 AV.roleNames = {
   superadmin: 'Super Admin', admin: 'Admin', operator: 'Stores Operator', technician: 'Technician',
   planner: 'Supply Chain Planner', procurement: 'Procurement Manager', compliance: 'Compliance Officer',
-  supplier: 'Supplier', viewer: 'Management viewer'
+  supplier: 'Supplier'
 };
 
 

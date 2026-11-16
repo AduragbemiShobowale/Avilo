@@ -17,6 +17,9 @@ const CHIP = {
   reserved: ['loc', <path d="M5 2h6v12l-3-2-3 2z" />, 'Reserved'],
   routine: ['off', <circle cx="8" cy="8" r="2.5" />, 'Routine'],
   approved: ['ok', <path d="M3 8.5l3 3 7-7" />, 'Approved'],
+  'in repair': ['rep', <path d="M13 8a5 5 0 1 1-1.5-3.6M13 2.5v2.5h-2.5" />, 'At repair vendor'],
+  exception: ['bad', <><path d="M8 2l6.5 11.5h-13z" /><path d="M8 6.5v3M8 11.5v.5" /></>, 'Exception'],
+  sensor: ['loc', <><path d="M5 11a4 4 0 0 1 0-6M11 5a4 4 0 0 1 0 6" /><circle cx="8" cy="8" r="1.2" /></>, 'RFID'],
 }
 
 export function Chip({ k, children }) {

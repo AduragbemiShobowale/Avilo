@@ -389,3 +389,14 @@ button.li:hover { background: var(--surface-2); }
 .approvals li.ok { color: var(--ok); } .approvals li.ok .n { background: var(--ok); border-color: var(--ok); color: #fff; }
 .approvals li.now { color: var(--ink); } .approvals li.now .n { border-color: var(--locator); color: var(--link); }
 @media (max-width: 640px) { .steps li { grid-template-columns: 34px minmax(0, 1fr); } .steps li .btn { grid-column: 2; justify-self: start; } }
+
+/* Notifications */
+.bell-wrap { position: relative; }
+.icon-btn.bell { position: relative; color: var(--ink); }
+.icon-btn.bell svg { width: 18px; height: 18px; }
+.icon-btn.bell .badge { position: absolute; top: -6px; right: -6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--bad); color: #fff; font: 600 11px/18px var(--font-mono); }
+.bell-pop { position: absolute; right: 0; top: 46px; z-index: 50; width: min(360px, calc(100vw - 32px)); max-height: 70vh; overflow: auto; background: var(--surface-1); border: 1px solid var(--line); border-radius: var(--r-md); box-shadow: 0 12px 32px rgba(0,0,0,.18); padding: 12px; display: grid; gap: 8px; }
+.note-item { display: grid; gap: 2px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); font-size: 13px; }
+.note-item small { color: var(--ink-muted); font-size: 11px; }
+.note-item.unread { border-color: var(--locator); background: color-mix(in srgb, var(--locator) 8%, transparent); }
+.btn.sm { padding: 4px 8px; font-size: 12px; }
