@@ -10,13 +10,22 @@ function RecCard({ r, S, profile, act }) {
   const d = r.decision || { approvals: [] }
   const high = r.value >= S.limit
   const canApprove = ['planner', 'procurement'].includes(profile.role)
-  const path = r.aog ? 'AOG fast path: one approval by Planner or Procurement Manager, reviewed within 24 h'
-    : high ? `At or above ${usd(S.limit)}: Planner, then Procurement Manager` : `Below ${usd(S.limit)}: one approval`
+  // Who approves: below the limit, the Planner alone; at or above it, the Planner then the
+  // Procurement Manager; for a grounded aircraft (AOG), either one of them straight away.
+  const planner = AV.users.find((u) => u.role === 'planner'), pm = AV.users.find((u) => u.role === 'procurement')
+  const by = (role) => d.approvals.find((a) => AV.userBy[a.by]?.role === role)
+  const steps = r.aog
+    ? [{ role: 'any', who: 'Planner or Procurement Manager', name: 'either one, straight away because the aircraft is grounded', done: d.approvals[0] }]
+    : high
+      ? [{ role: 'planner', who: 'Planner', name: planner?.name, done: by('planner') }, { role: 'procurement', who: 'Procurement Manager', name: pm?.name, done: by('procurement') }]
+      : [{ role: 'any', who: 'Planner', name: `${planner?.name} (or the Procurement Manager)`, done: d.approvals[0] }]
+  const next = steps.find((x) => !x.done)
   let block = ''
-  if (!canApprove) block = 'Your role can view but not approve.'
-  else if (d.approvals.some((a) => a.by === profile.id)) block = 'You already approved. A second person must act.'
-  else if (high && !r.aog && profile.role === 'procurement' && !d.approvals.length) block = "Waiting for the Planner's approval first."
-  const q = S.requests.find((x) => x.pn === r.pn && x.station === r.station && x.status === 'Open')
+  if (!canApprove) block = 'Only the Planner and the Procurement Manager approve orders.'
+  else if (d.approvals.some((a) => a.by === profile.id)) block = 'You have approved. It is with the next person now.'
+  else if (next && next.role !== 'any' && next.role !== profile.role) block = `Waiting for step ${steps.indexOf(next) + 1}: the ${next.who}, ${next.name}.`
+
+  const q =S.requests.find((x) => x.pn === r.pn && x.station === r.station && x.status === 'Open')
 
   return (
     <section className={`card rec ${r.aog ? 'is-aog' : ''}`}>
@@ -38,7 +47,14 @@ function RecCard({ r, S, profile, act }) {
         </div>
       )}
       <div className="ch">
-        <span className="small muted">{path}{d.approvals.length ? ` · approved by ${d.approvals.map((a) => uname(a.by)).join(', ')}` : ''}</span>
+        <ol className="approvals" aria-label="Approval steps">
+          {steps.map((x, i) => (
+            <li key={i} className={x.done ? 'ok' : x === next ? 'now' : ''}>
+              <span className="n">{x.done ? '✓' : i + 1}</span>
+              <span><b>{x.who}</b> · {x.done ? `approved by ${uname(x.done.by)}` : x.name}{!x.done && x === next ? ' · waiting' : ''}</span>
+            </li>
+          ))}
+        </ol>
         <div className="row">
           {block && <span className="small muted">{block}</span>}
           <button className="btn danger" disabled={!canApprove} onClick={() => act('reject_rec', { p_rec: r.id })}>Reject</button>
