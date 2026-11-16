@@ -27,12 +27,14 @@ function Chart({ y, f, next }) {
 export default function Forecasts() {
   const [pn, setPn] = useState('3214552-3')
   const [st, setSt] = useState('LHR')
-  const p = AV.partBy[pn], y = AV.history[pn][st]
-  const m = { Mean: AV.movingMean(y), Croston: AV.croston(y, 0.1, false), SBA: AV.croston(y, 0.1, true), TSB: AV.tsb(y, 0.1, 0.1) }
+  const p = AV.partBy[pn], y = AV.historyUnscheduled[pn][st], yTot = AV.history[pn][st]
+  const m = { Mean: AV.movingMean(y), SES: AV.ses(y, 0.2), Croston: AV.croston(y, 0.1, false), SBA: AV.croston(y, 0.1, true), TSB: AV.tsb(y, 0.1, 0.1) }
   const ev = Object.fromEntries(Object.entries(m).map(([k, v]) => [k, AV.evaluate(y, v.fitted, 78)]))
   const best = Object.entries(ev).sort((a, b) => a[1].mae - b[1].mae)[0][0]
   const r = AV.ropFor(pn, st)
   const zeros = y.filter((v) => v === 0).length
+  const chosen = r.method
+  const fc = m[chosen] || m.SBA
 
   return (
     <>
@@ -40,12 +42,14 @@ export default function Forecasts() {
         <select className="inp auto" value={pn} onChange={(e) => setPn(e.target.value)} aria-label="Part">{AV.parts.map((x) => <option key={x.pn} value={x.pn}>{x.name}</option>)}</select>
         <select className="inp auto" value={st} onChange={(e) => setSt(e.target.value)} aria-label="Station">{AV.stations.map((s) => <option key={s.code}>{s.code}</option>)}</select>
       </PageHead>
-      <Card title={`${p.name} at ${st}, weekly demand`} aside={`104 weeks · ${zeros} with zero demand · shaded weeks are the hold-out test`}>
-        <Chart y={y} f={m.SBA.fitted} next={m.SBA.next} />
+      <Card title={`${p.name} at ${st}, weekly unscheduled demand`} aside={`104 weeks · ${zeros} with zero demand · shaded weeks are the hold-out test`}>
+        <Chart y={y} f={fc.fitted} next={fc.next} />
         <div className="row small muted">
-          <span><i className="key bar" /> Demand</span><span><i className="key line" /> SBA forecast</span>
-          <span>Next week: <b className="mono">{m.SBA.next.toFixed(2)}</b> {p.unit}</span>
+          <span><i className="key bar" /> Unscheduled demand</span><span><i className="key line" /> {chosen} forecast</span>
+          <span>Pattern: <Chip k={r.pattern === 'smooth' ? 'serviceable' : 'pending'}>{r.pattern}</Chip> ADI {isFinite(r.adi) ? r.adi.toFixed(2) : '∞'} · CV² {r.cv2.toFixed(2)} → {r.method}</span>
+          <span>Next week: <b className="mono">{r.weekly.toFixed(2)}</b> {p.unit}{Math.abs(r.fhRatio - 1) > 0.01 ? ` (×${r.fhRatio.toFixed(2)} for planned flight hours)` : ''}</span>
         </div>
+        <p className="note">Planned check consumption ({yTot.reduce((a, b) => a + b, 0) - y.reduce((a, b) => a + b, 0)} {p.unit} over the 104 weeks) is not forecast from history: Avilo reads it from the check calendar instead. Demand is classified on 4-week buckets (Syntetos–Boylan cut-offs ADI 1.32, CV² 0.49): smooth parts use SES, intermittent parts SBA, erratic and lumpy parts TSB.</p>
       </Card>
       <div className="grid g2 top">
         <Card title="Method comparison">
@@ -64,9 +68,9 @@ export default function Forecasts() {
         <Card title="Reorder point">
           <div className="grid g2">
             <Tile label="Classic baseline" value={r.classic} note={<><span className="mono">d̄·L + z·σ·√L</span><br />{r.mean.toFixed(2)} × {r.Lw.toFixed(1)} wk + 1.65 × {r.sd.toFixed(2)} × √{r.Lw.toFixed(1)}</>} />
-            <Tile label="Avilo" value={r.avilo} note={<>{p.type === 'rotable' ? 'Poisson quantile of SBA demand over lead time' : 'SBA demand over lead time plus safety stock from forecast error'}<br />Service level {Math.round(AV.SERVICE_LEVEL[p.crit] * 100)}% for criticality {p.crit}</>} />
+            <Tile label="Avilo" value={r.avilo} note={<>{p.type === 'rotable' ? `Poisson quantile of ${r.method} demand over lead time` : `${r.method} demand over lead time plus safety stock from forecast error`}: {r.base}{r.planned ? <> + {r.planned} for checks due within the lead time</> : null}<br />Service level {Math.round(AV.SERVICE_LEVEL[p.crit] * 100)}% for criticality {p.crit}</>} />
           </div>
-          <p className="note">The classic formula assumes normally distributed demand. With {zeros} zero weeks out of 104, it is not. Avilo sets service level by criticality, so an AOG-critical part gets more protection than a reading lamp.</p>
+          <p className="note">The classic formula uses total demand, checks included, as if it were normally distributed. {r.pattern === 'smooth' ? 'This part’s demand is smooth, but the check kits still arrive in lumps the average spreads thinly over every week.' : `With ${zeros} zero weeks out of 104, it is not.`} Avilo sets service level by criticality, so an AOG-critical part gets more protection than a reading lamp.</p>
         </Card>
       </div>
     </>

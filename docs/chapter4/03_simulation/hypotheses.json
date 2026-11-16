@@ -1,0 +1,119 @@
+{
+  "generated": "2026-11-16T09:49:19.362Z",
+  "reps": 30,
+  "baseSeed": 20261112,
+  "days": 365,
+  "warmup": 90,
+  "rules": {
+    "H2": "False-positive shortage alerts (C vs A, normal scenario) fall by >= 15%, the 95% CI of the paired difference lies below zero, and missed shortages do not rise (CI upper bound <= 0).",
+    "H4": "Critical-part stockouts (class A or B) fall by >= 30% (C vs A) in the normal scenario, with the 95% CI of the paired difference below zero; reported for every scenario."
+  },
+  "verdict": {
+    "H2": {
+      "falseAlerts": {
+        "scenario": "normal",
+        "from": "A",
+        "to": "C",
+        "metric": "falseAlerts",
+        "meanA": 52.96666666666667,
+        "meanB": 5.3,
+        "diff": -47.666666666666664,
+        "lo": -49.57634045678746,
+        "hi": -45.756992876545866,
+        "pct": -89.99370673379484,
+        "p": 0.0000017365953490777741,
+        "n": 30
+      },
+      "missed": {
+        "scenario": "normal",
+        "from": "A",
+        "to": "C",
+        "metric": "missed",
+        "meanA": 37.766666666666666,
+        "meanB": 14.1,
+        "diff": -23.666666666666668,
+        "lo": -25.89250081656087,
+        "hi": -21.440832516772467,
+        "pct": -62.66548984995587,
+        "p": 0.0000017365953490777741,
+        "n": 30
+      },
+      "supported": true
+    },
+    "H4": {
+      "critical": {
+        "scenario": "normal",
+        "from": "A",
+        "to": "C",
+        "metric": "critical",
+        "meanA": 132.36666666666667,
+        "meanB": 13.033333333333333,
+        "diff": -119.33333333333333,
+        "lo": -126.82589485277416,
+        "hi": -111.8407718138925,
+        "pct": -90.15361369932006,
+        "p": 0.0000017365953490777741,
+        "n": 30
+      },
+      "supported": true,
+      "byScenario": [
+        {
+          "scenario": "normal",
+          "from": "A",
+          "to": "C",
+          "metric": "critical",
+          "meanA": 132.36666666666667,
+          "meanB": 13.033333333333333,
+          "diff": -119.33333333333333,
+          "lo": -126.82589485277416,
+          "hi": -111.8407718138925,
+          "pct": -90.15361369932006,
+          "p": 0.0000017365953490777741,
+          "n": 30
+        },
+        {
+          "scenario": "aog",
+          "from": "A",
+          "to": "C",
+          "metric": "critical",
+          "meanA": 133.7,
+          "meanB": 14.2,
+          "diff": -119.5,
+          "lo": -126.94714042454375,
+          "hi": -112.05285957545625,
+          "pct": -89.37920718025431,
+          "p": 0.0000017365953490777741,
+          "n": 30
+        },
+        {
+          "scenario": "delay",
+          "from": "A",
+          "to": "C",
+          "metric": "critical",
+          "meanA": 190.33333333333334,
+          "meanB": 50.43333333333333,
+          "diff": -139.9,
+          "lo": -148.23620278074642,
+          "hi": -131.5637972192536,
+          "pct": -73.50262697022767,
+          "p": 0.0000017365953490777741,
+          "n": 30
+        },
+        {
+          "scenario": "lost",
+          "from": "A",
+          "to": "C",
+          "metric": "critical",
+          "meanA": 132.36666666666667,
+          "meanB": 13.066666666666666,
+          "diff": -119.3,
+          "lo": -126.84678029905362,
+          "hi": -111.75321970094637,
+          "pct": -90.12843112566104,
+          "p": 0.0000017365953490777741,
+          "n": 30
+        }
+      ]
+    }
+  }
+}
