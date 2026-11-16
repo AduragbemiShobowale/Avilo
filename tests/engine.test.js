@@ -85,3 +85,53 @@ test('paired test: a constant improvement has a CI that excludes zero', () => {
   assert.equal(t.diff, -3)
   assert.ok(t.hi < 0)
 })
+
+import { parseErp, reconcile } from '../src/lib/erp.js'
+
+test('ledger: repair send and return move a rotable out of stock and back to inspection', () => {
+  const items = AV.project([
+    ev('TURN_IN', { item: 'NW-1', pn: 'NW-277104', qty: 1, to: 'LHR', cond: 'unserviceable' }),
+    ev('REPAIR_OUT', { item: 'NW-1', pn: 'NW-277104', qty: 1, from: 'LHR', ref: 'RO-1', reason: 'Kestrel Rotables' }),
+  ])
+  assert.equal(items['NW-1'].loc, null)
+  assert.equal(items['NW-1'].cond, 'in repair')
+  assert.equal(items['NW-1'].repair.ro, 'RO-1')
+  const back = AV.project([
+    ev('TURN_IN', { item: 'NW-1', pn: 'NW-277104', qty: 1, to: 'LHR', cond: 'unserviceable' }),
+    ev('REPAIR_OUT', { item: 'NW-1', pn: 'NW-277104', qty: 1, from: 'LHR', ref: 'RO-1' }),
+    ev('REPAIR_IN', { item: 'NW-1', pn: 'NW-277104', qty: 1, to: 'SIN', cert: 'Form 1' }),
+  ])
+  assert.equal(back['NW-1'].loc, 'SIN')
+  assert.equal(back['NW-1'].cond, 'pending')
+})
+
+test('ERP: Navision extract with semicolons, bins and European decimals', () => {
+  const r = parseErp('Item No.;Location Code;Bin Code;Quantity\nEO-2380-QT;LHR;A1;100\neo-2380-qt;lhr;A2;30\nHF-500B-GL;SIN;B1;"1.234,5"\n;LHR;;3')
+  assert.equal(r.rows.length, 2)
+  assert.equal(r.rows.find((x) => x.pn === 'EO-2380-QT').qty, 130)
+  assert.equal(r.rows.find((x) => x.pn === 'HF-500B-GL').qty, 1234.5)
+  assert.equal(r.errors.length, 1)
+  assert.equal(parseErp('Part,Where,How many\nA,B,1').errors.length, 1)
+})
+
+test('ERP: reconciliation flags mismatches and lines missing from the ERP', () => {
+  const items = AV.project([
+    ev('RECEIVE', { item: 'EO-1', pn: 'EO-2380-QT', qty: 50, to: 'LHR', cond: 'serviceable' }),
+    ev('RECEIVE', { item: 'HF-1', pn: 'HF-500B-GL', qty: 4, to: 'SIN', cond: 'serviceable' }),
+  ])
+  const rows = reconcile(items, [{ pn: 'EO-2380-QT', station: 'LHR', qty: 50 }, { pn: 'OF-1290-8', station: 'DXB', qty: 2 }])
+  const by = Object.fromEntries(rows.map((r) => [r.pn + r.station, r]))
+  assert.equal(by['EO-2380-QTLHR'].status, 'Match')
+  assert.equal(by['HF-500B-GLSIN'].status, 'Not in ERP')
+  assert.equal(by['OF-1290-8DXB'].status, 'Mismatch')
+  assert.equal(by['OF-1290-8DXB'].diff, 2)
+})
+
+test('lead time: the planning factor follows observed lateness and never drops below quoted', () => {
+  const D = 864e5, mk = (id, sup, pn, days) => ({ id, sup, pn, sent: 1, received: 1 + days * D })
+  const late = AV.observedLead({ pos: [mk('a', 'SUP-2', 'NW-277104', 21), mk('b', 'SUP-2', 'NW-277104', 21), mk('c', 'SUP-2', '3214552-3', 45)] })
+  assert.ok(Math.abs(late['SUP-2'].mean - 1.5) < 1e-9)
+  const early = AV.observedLead({ pos: [mk('a', 'SUP-3', 'WB-5520-3', 6), mk('b', 'SUP-3', 'WB-5520-3', 6), mk('c', 'SUP-3', 'WB-5520-3', 6)] })
+  assert.equal(early['SUP-3'].factor, 1)
+  assert.equal(AV.observedLead({ pos: [] })['SUP-1'].factor, 1)
+})

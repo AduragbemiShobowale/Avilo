@@ -7,6 +7,7 @@ import { SCREENS } from '../pages/screens/registry'
 import Icon from './icons'
 import Logo from './Logo'
 import { Loading, Modal } from './ui'
+import { rpc } from '../lib/supabase'
 import PageGuide from './PageGuide'
 
 // Keeps a crash in one page from blanking the whole app. Resets when the route changes.
@@ -31,9 +32,36 @@ function Clock() {
   return <span className="pill mono hide-sm">{fDT(now)}</span>
 }
 
+// Notifications for this person: supplier order alerts, confirmations, shipments, inspections.
+function Bell({ S, reload }) {
+  const [open, setOpen] = useState(false)
+  if (!S) return null
+  const list = S.notifications.slice(0, 15)
+  const unread = S.notifications.filter((n) => !S.readIds.has(n.id))
+  const markAll = async () => { if (unread.length) { try { await rpc('mark_read', { p_ids: unread.map((n) => n.id) }); reload() } catch (e) { /* shown on next load */ } } }
+  return (
+    <div className="bell-wrap">
+      <button className="icon-btn bell" aria-label={`Notifications, ${unread.length} unread`} aria-expanded={open} onClick={() => setOpen(!open)}>
+        <Icon name="bell" />{unread.length > 0 && <span className="badge">{unread.length}</span>}
+      </button>
+      {open && (
+        <div className="bell-pop" role="dialog" aria-label="Notifications">
+          <div className="row"><b>Notifications</b><span className="spacer" />{unread.length > 0 && <button className="btn ghost sm" onClick={markAll}>Mark all read</button>}</div>
+          {list.length ? list.map((n) => (
+            <div key={n.id} className={`note-item ${S.readIds.has(n.id) ? '' : 'unread'}`}>
+              <small>{n.kind} · {fDT(n.ts)}</small>
+              <span>{n.body}</span>
+            </div>
+          )) : <p className="small muted">Nothing yet.</p>}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function Layout() {
   const { profile, role, signOut } = useAuth()
-  const { S, error, scanner, setScanner } = useLive()
+  const { S, error, scanner, setScanner, reload } = useLive()
   const [open, setOpen] = useState(false)
   const [confirmOut, setConfirmOut] = useState(false)
   const loc = useLocation()
@@ -85,6 +113,7 @@ export default function Layout() {
           <span className="spacer" />
           <span className="pill sim">Simulated data</span>
           <Clock />
+          <Bell S={S} reload={reload} />
           {role !== 'supplier' && (
             <button className={`pill ${scanner ? 'live' : ''}`} onClick={() => setScanner(!scanner)} title="The scanner simulator posts stock movements through the same server door as a real scanner">
               <span className="dot" />{scanner ? 'Scanner feed live' : 'Scanner feed off'}

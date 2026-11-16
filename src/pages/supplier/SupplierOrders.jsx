@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import AV from '../../lib/engine'
 import { useAuth } from '../../context/AuthContext'
 import { useLive } from '../../context/LiveContext'
@@ -11,6 +12,10 @@ export default function SupplierOrders() {
   const mine = S.pos.filter((o) => o.sup === sup.id && o.status !== 'Received').slice().reverse()
   const sc = AV.scorecard(S, sup.id)
   const cert = sup.id === 'SUP-3' ? '8130-3' : 'Form 1'
+  const [dates, setDates] = useState({})
+  const iso = (t) => new Date(t).toISOString().slice(0, 10)
+  const ackd = S.pos.filter((o) => o.sup === sup.id && o.acknowledged && o.sent)
+  const ackH = ackd.length ? ackd.reduce((a, o) => a + (o.acknowledged - o.sent) / 36e5, 0) / ackd.length : null
 
   return (
     <>
@@ -18,7 +23,7 @@ export default function SupplierOrders() {
       <div className="grid g3">
         <Tile label="On-time delivery" value={sc.onTime == null ? '–' : Math.round(sc.onTime * 100) + '%'} note={`Last ${sc.n} orders`} />
         <Tile label="Average lead time" value={sc.lead == null ? '–' : sc.lead.toFixed(0) + ' d'} note="Order sent to received" />
-        <Tile label="Open orders" value={mine.length} note="Confirm dates so planners can count on them" />
+        <Tile label="Time to confirm" value={ackH == null ? '–' : ackH < 48 ? ackH.toFixed(0) + ' h' : (ackH / 24).toFixed(1) + ' d'} note={`Order sent to your confirmation · ${mine.length} open`} />
       </div>
       <Card title="My orders">
         <div className="list">
@@ -35,7 +40,8 @@ export default function SupplierOrders() {
                 <div className="row">
                   {o.status === 'Sent' && <>
                     <button className="btn danger" onClick={() => act('supplier_po', { p_po: o.id, p_action: 'decline' })}>Decline</button>
-                    <button className="btn primary" onClick={() => act('supplier_po', { p_po: o.id, p_action: 'accept' })}>Accept · {p.lead}-day lead</button>
+                    <label className="small muted">Deliver by <input className="inp auto mono" type="date" min={iso(Date.now())} value={dates[o.id] || iso(Date.now() + p.lead * 864e5)} onChange={(e) => setDates({ ...dates, [o.id]: e.target.value })} aria-label="Promised delivery date" /></label>
+                    <button className="btn primary" onClick={() => act('supplier_po', { p_po: o.id, p_action: 'accept', p_promised: dates[o.id] || iso(Date.now() + p.lead * 864e5) })}>Confirm order</button>
                   </>}
                   {o.status === 'Confirmed' && <>
                     {o.certUploaded ? <span className="small muted">Certificate uploaded</span> : <button className="btn" onClick={() => act('supplier_po', { p_po: o.id, p_action: 'cert' })}>Upload {cert}</button>}

@@ -12,6 +12,9 @@ import AuditLog from '../admin/AuditLog'
 import UsersLimits from '../admin/UsersLimits'
 import Overview from '../help/Overview'
 import HowItWorks from '../help/HowItWorks'
+import ErpImport from '../erp/ErpImport'
+import LeadTimes from '../plan/LeadTimes'
+import VisibilityTest from '../evidence/VisibilityTest'
 
 // Counts beside menu items, computed from what the signed-in role can read.
 const openRecs = (S) => AV.recommend(S).filter((r) => !r.decision || r.decision.status === 'Awaiting second approval').length
@@ -20,10 +23,11 @@ const pendingCerts = (S) => Object.values(S.items).filter((i) => i.cond === 'pen
 const storeWork = (S, p) => {
   const sc = p?.scope || []
   return AV.transits(S).filter((t) => sc.includes(t.to)).length + S.tasks.filter((t) => t.status === 'Open' && sc.includes(t.from)).length
-    + S.pos.filter((o) => o.status === 'Shipped' && sc.includes(o.station)).length
+    + S.pos.filter((o) => o.status === 'Shipped' && sc.includes(o.station)).length + openExc(S, p)
 }
 const myOrders = (S, p) => S.pos.filter((o) => o.sup === p?.supplier && ['Sent', 'Confirmed'].includes(o.status)).length
 const openReqs = (S) => S.requests.filter((r) => r.status === 'Open').length
+const openExc = (S, p) => S.exceptions.filter((x) => x.status === 'Open' && (p?.role !== 'operator' || (p?.scope || []).includes(x.station))).length
 
 const S_ = {
   tower: { path: '/', label: 'Control tower', icon: 'radar', group: 'Operate', component: ControlTower, guide: 'ControlTower', count: overdue },
@@ -41,18 +45,20 @@ const S_ = {
   audit: { path: '/audit', label: 'Audit log', icon: 'list', group: 'Control', component: AuditLog, guide: 'AuditLog' },
   access: { path: '/access', label: 'Users & limits', icon: 'users', group: 'Control', component: UsersLimits, guide: 'UsersLimits' },
   overview: { path: '/', label: 'Overview', icon: 'home', group: 'Start', component: Overview, guide: 'Overview' },
+  erp: { path: '/erp', label: 'ERP reconciliation', icon: 'upload', group: 'Control', component: ErpImport, guide: 'ErpImport' },
+  leadTimes: { path: '/lead-times', label: 'Supplier lead times', icon: 'gauge', group: 'Plan', component: LeadTimes, guide: 'LeadTimes' },
+  visibility: { path: '/visibility-test', label: 'Visibility test', icon: 'bolt', group: 'Evidence', component: VisibilityTest, guide: 'VisibilityTest' },
   help: { path: '/how-it-works', label: 'How Avilo works', icon: 'help', group: 'Help', component: HowItWorks, guide: 'HowItWorks' },
 }
 
 // Every screen, by role. Routes and menus are generated from this list.
 export const SCREENS = {
-  planner: [S_.tower, S_.find, S_.replen, S_.forecast, S_.history, S_.lab, S_.help],
+  planner: [S_.tower, S_.find, S_.replen, S_.forecast, S_.leadTimes, S_.erp, S_.history, S_.lab, S_.help],
   operator: [S_.stores, S_.find, S_.history, S_.help],
   technician: [S_.findHome, S_.history, S_.help],
-  procurement: [S_.replenHome, S_.towerView, S_.forecast, S_.find, S_.history, S_.access, S_.lab, S_.help],
+  procurement: [S_.replenHome, S_.towerView, S_.forecast, S_.leadTimes, S_.find, S_.history, S_.access, S_.lab, S_.help],
   compliance: [S_.quality, S_.towerView, S_.find, S_.history, S_.audit, S_.help],
   supplier: [S_.orders, S_.help],
-  admin: [S_.overview, S_.access, S_.audit, S_.towerView, S_.find, S_.history, S_.lab, S_.help],
-  superadmin: [S_.overview, S_.audit, S_.access, S_.towerView, S_.find, S_.history, S_.lab, S_.help],
-  viewer: [S_.tower, S_.forecast, S_.history, S_.lab, S_.help],
+  admin: [S_.overview, S_.access, S_.audit, S_.erp, S_.towerView, S_.find, S_.history, S_.lab, S_.visibility, S_.help],
+  superadmin: [S_.overview, S_.audit, S_.access, S_.erp, S_.towerView, S_.find, S_.history, S_.lab, S_.visibility, S_.help],
 }

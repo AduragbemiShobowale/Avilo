@@ -37,7 +37,9 @@ function applyEvent(items, e) {
       break;
     case 'RESERVE': if (it) it.reserved = e.ref; break;
     case 'RELEASE': if (it) it.reserved = null; break;
-    case 'ADJUST': if (it) it.qty += e.delta; break;
+    case 'ADJUST': if (it) it.qty += (e.delta != null ? e.delta : e.qty); break;
+    case 'REPAIR_OUT': if (it) { it.loc = null; it.cond = 'in repair'; it.reserved = null; it.repair = { ro: e.ref, vendor: e.reason, from: e.from, ts: e.ts }; } break;
+    case 'REPAIR_IN': if (it) { it.loc = e.to; it.cond = 'pending'; it.repair = null; it.cert = e.cert; it.since = e.ts; } break;
     case 'SCRAP': if (it) { it.cond = 'scrapped'; it.loc = null; } break;
   }
 }
@@ -45,7 +47,7 @@ AV.project = function (events) { const items = {}; for (const e of events) apply
 
 AV.isOverdue = (tr, now) => (now || AV.clock()) - tr.ts > AV.OVERDUE_HOURS * 36e5;
 
-AV.condLabel = (c) => ({ serviceable: 'Serviceable', unserviceable: 'Unserviceable', repairable: 'Repairable', quarantined: 'Quarantined', pending: 'Pending inspection', issued: 'Fitted to aircraft', scrapped: 'Scrapped' }[c] || c);
+AV.condLabel = (c) => ({ serviceable: 'Serviceable', unserviceable: 'Unserviceable', repairable: 'Repairable', quarantined: 'Quarantined', pending: 'Pending inspection', issued: 'Fitted to aircraft', scrapped: 'Scrapped', 'in repair': 'At repair vendor' }[c] || c);
 
 AV.available = function (S, pn, station) {
   let q = 0;
@@ -64,20 +66,20 @@ AV.inventoryValue = function (S) {
 };
 
 /* ---------- Permissions (architecture section 3) ---------- */
-const ALL = ['superadmin', 'admin', 'operator', 'technician', 'planner', 'procurement', 'compliance', 'viewer'];
+const ALL = ['superadmin', 'admin', 'operator', 'technician', 'planner', 'procurement', 'compliance'];
 const M = {
-  'tower.view': ['planner', 'procurement', 'compliance', 'admin', 'superadmin', 'viewer'],
+  'tower.view': ['planner', 'procurement', 'compliance', 'admin', 'superadmin'],
   'stores.use': ['operator'],
   'search': ['technician', 'planner', 'procurement', 'compliance', 'admin', 'superadmin', 'operator'],
   'request.raise': ['technician', 'planner'],
-  'replen.view': ['planner', 'procurement', 'viewer'],
+  'replen.view': ['planner', 'procurement'],
   'rec.approve': ['planner', 'procurement'],
   'rec.approve.high': ['procurement'],
-  'forecast.view': ['planner', 'procurement', 'viewer'],
+  'forecast.view': ['planner', 'procurement'],
   'compliance.use': ['compliance'],
   'supplier.portal': ['supplier'],
   'history.view': ALL,
-  'sim.view': ['planner', 'procurement', 'viewer', 'admin', 'superadmin'],
+  'sim.view': ['planner', 'procurement', 'admin', 'superadmin'],
   'audit.view': ['admin', 'compliance', 'superadmin'],
   'admin.use': ['admin', 'superadmin', 'procurement'],
   'limit.propose': ['admin'],
@@ -153,7 +155,11 @@ const stats = (y) => { const m = y.reduce((s, v) => s + v, 0) / y.length; const 
 const ropCache = new Map();
 AV.ropFor = function (pn, station, opts) {
   opts = opts || {};
-  const key = pn + '|' + station + '|' + (opts.leadDays || '');
+  const p = AV.partBy[pn];
+  // planning lead time: quoted lead × the supplier's observed lateness factor (set when live data loads)
+  const leadDays = opts.leadDays || Math.round(p.lead * ((AV.leadFactor && AV.leadFactor[p.sup]) || 1) * 10) / 10;
+  opts = Object.assign({}, opts, { leadDays });
+  const key = pn + '|' + station + '|' + leadDays;
   if (ropCache.has(key)) return ropCache.get(key);
   const out = ropForUncached(pn, station, opts);
   ropCache.set(key, out);
@@ -184,10 +190,9 @@ function ropForUncached(pn, station, opts) {
 AV.recommend = function (S) {
   const now = AV.clock(), recs = [];
   const transit = AV.transits(S);
-  const lead = AV.observedLead(S);
   for (const p of AV.parts) {
     for (const st of AV.stations) {
-      const r = AV.ropFor(p.pn, st.code, { leadDays: lead[p.sup] });
+      const r = AV.ropFor(p.pn, st.code);
       const onHand = AV.available(S, p.pn, st.code);
       let inbound = 0, overdueIn = 0;
       for (const t of transit) if (t.to === st.code) for (const it of t.items) if (it.pn === p.pn) { if (t.overdue) overdueIn += it.qty; else inbound += it.qty; }
@@ -209,12 +214,16 @@ AV.recommend = function (S) {
   return recs.sort((a, b) => rank(a) - rank(b) || b.value - a.value);
 };
 
-/* Observed supplier lead time: mean + 1 sd of the last 8 received orders (needs at least 3). */
+/* Observed supplier lateness: actual / quoted lead time over the supplier's last 8 received orders
+   (any part). The framework plans with quoted lead × (mean + 1 sd), never less than quoted; with fewer
+   than 3 deliveries it uses the quoted lead time. */
 AV.observedLead = function (S) {
   const out = {};
   for (const sup of AV.suppliers) {
-    const lt = (S.pos || []).filter(o => o.sup === sup.id && o.received && o.sent).sort((a, b) => a.received - b.received).slice(-8).map(o => (o.received - o.sent) / DAY);
-    if (lt.length >= 3) { const st = stats(lt); out[sup.id] = st.mean + st.sd; }
+    const r = (S.pos || []).filter(o => o.sup === sup.id && o.received && o.sent).sort((a, b) => a.received - b.received).slice(-8)
+      .map(o => ((o.received - o.sent) / DAY) / AV.partBy[o.pn].lead);
+    if (r.length >= 3) { const st = stats(r); out[sup.id] = { factor: Math.max(1, st.mean + st.sd), mean: st.mean, sd: st.sd, n: r.length }; }
+    else out[sup.id] = { factor: 1, mean: null, sd: null, n: r.length };
   }
   return out;
 };

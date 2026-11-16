@@ -43,6 +43,30 @@ function ScanResult({ q, station, S, act }) {
   )
 }
 
+// Stands in for the RFID reader on the dock door. A real reader posts the same call from the device.
+function GateReader({ station, S, act }) {
+  const [reader, setReader] = useState(`${station}-DOCK-IN`)
+  const [tag, setTag] = useState('')
+  const rid = reader.startsWith(station) ? reader : `${station}-DOCK-IN`
+  const reads = S.sensorReads.filter((r) => r.reader.startsWith(station)).slice(0, 5)
+  return (
+    <Card title="RFID gate" aside="Simulated reader">
+      <p className="note">Tags read at the goods-in gate confirm expected transfers automatically. Anything the ledger does not expect becomes an exception to check.</p>
+      <form className="row" onSubmit={(e) => { e.preventDefault(); if (tag.trim()) act('gate_read', { p_reader: rid, p_item: tag.trim().toUpperCase() }).then((ok) => ok && setTag('')) }}>
+        <select className="inp auto" value={rid} onChange={(e) => setReader(e.target.value)} aria-label="Gate">
+          <option value={`${station}-DOCK-IN`}>Goods in</option><option value={`${station}-DOCK-OUT`}>Goods out</option>
+        </select>
+        <input className="inp mono" placeholder="Tag (serial or batch)" value={tag} onChange={(e) => setTag(e.target.value)} aria-label="Tag" />
+        <button className="btn">Read tag</button>
+      </form>
+      <div className="list">
+        {reads.map((r) => <div className="li" key={r.id}><span className={`sev ${/exception|without|Unexpected|Unknown|Not expected/i.test(r.result) ? 'bad' : 'loc'}`} /><div className="grow"><b className="mono">{r.item}</b><span className="small muted">{r.reader} · {r.result} · {fDT(r.ts)}</span></div></div>)}
+        {!reads.length && <Empty>No tag reads at {station} yet.</Empty>}
+      </div>
+    </Card>
+  )
+}
+
 export default function Stores() {
   const { profile } = useAuth()
   const { S, act } = useLive()
@@ -57,7 +81,10 @@ export default function Stores() {
   const deliveries = S.pos.filter((o) => o.station === station && o.status === 'Shipped')
   const toIssue = Object.values(S.items).filter((i) => i.loc === station && i.reserved).map((i) => [i, S.requests.find((r) => r.id === i.reserved)]).filter(([, r]) => r && r.status === 'Open' && r.station === station)
   const stock = Object.values(S.items).filter((i) => i.loc === station && i.qty > 0 && !['issued', 'scrapped'].includes(i.cond)).sort((a, b) => a.pn.localeCompare(b.pn))
-  const work = inbound.length + tasks.length + deliveries.length + toIssue.length
+  const toRepair = Object.values(S.items).filter((i) => i.loc === station && ['unserviceable', 'repairable'].includes(i.cond) && part(i.pn).type === 'rotable')
+  const atVendor = Object.values(S.items).filter((i) => i.cond === 'in repair' && i.repair && i.repair.from === station)
+  const exceptions = S.exceptions.filter((x) => x.station === station && x.status === 'Open')
+  const work = inbound.length + tasks.length + deliveries.length + toIssue.length + exceptions.length
 
   return (
     <>
@@ -109,6 +136,13 @@ export default function Stores() {
                 <button className="btn primary lg" onClick={() => act('issue_reserved', { p_item: i.id, p_req: r.id })}>Issue</button>
               </div>
             ))}
+            {exceptions.map((x) => (
+              <div className="li" key={x.id}>
+                <span className="sev bad" />
+                <div className="grow"><b>Check · {x.kind}</b><span className="small muted">{x.detail} · {fDT(x.ts)}</span><span><Chip k="exception">Found by the gate reader</Chip></span></div>
+                <button className="btn" onClick={() => { const n = window.prompt('What did you find? (e.g. "Unit on shelf B4, gate misread" or "Sent to SIN without paperwork, transfer now raised")'); if (n) act('resolve_exception', { p_id: x.id, p_note: n }) }}>Resolve</button>
+              </div>
+            ))}
             {!work && <Empty>No receipts, transfers or issues waiting.</Empty>}
           </div>
         </Card>
@@ -124,6 +158,31 @@ export default function Stores() {
             <button className="btn">Record as unserviceable</button>
           </form>
         </Card>
+      </div>
+
+      <div className="split">
+        <Card title="Repairs" aside={`${toRepair.length} to send · ${atVendor.length} at vendor`}>
+          <p className="note">Unserviceable rotables go to the repair vendor on a repair order and come back for inspection. While away they do not count as stock.</p>
+          <div className="list">
+            {toRepair.map((i) => (
+              <div className="li" key={i.id}>
+                <span className="sev warn" />
+                <div className="grow"><b>{part(i.pn).name}</b><span className="small muted"><span className="mono">{i.id}</span> · vendor {AV.supBy[part(i.pn).sup].name}</span><span><ItemChip it={i} /></span></div>
+                <button className="btn" onClick={() => act('ingest', { e: { type: 'REPAIR_OUT', item: i.id, pn: i.pn, from: station } }, `${i.id} sent for repair.`)}>Send for repair</button>
+              </div>
+            ))}
+            {atVendor.map((i) => (
+              <div className="li" key={i.id}>
+                <span className="sev loc" />
+                <div className="grow"><b>{part(i.pn).name}</b><span className="small muted"><span className="mono">{i.id} · {i.repair.ro}</span> · {i.repair.vendor} · sent {fDate(i.repair.ts)} ({age(i.repair.ts)} ago)</span><span><Chip k="in repair" /></span></div>
+                <button className="btn primary" onClick={() => act('ingest', { e: { type: 'REPAIR_IN', item: i.id, pn: i.pn, to: station, cert: 'EASA Form 1 (repair)' } }, `${i.id} back from repair. It waits in Pending inspection for Compliance.`)}>Receive from repair</button>
+              </div>
+            ))}
+            {!toRepair.length && !atVendor.length && <Empty>No units waiting for or out on repair.</Empty>}
+          </div>
+        </Card>
+
+        <GateReader station={station} S={S} act={act} />
       </div>
 
       <Card title={`Stock at ${station}`} aside={`${stock.length} records · derived from the ledger`}>

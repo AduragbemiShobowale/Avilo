@@ -10,7 +10,7 @@ const CAPS = [
   ['rec.approve', 'Approve reorder below limit'], ['rec.approve.high', 'Second approval above limit'], ['compliance.use', 'Verify certificates, change condition'],
   ['supplier.portal', 'Confirm and ship own orders'], ['audit.view', 'Read audit log'], ['limit.propose', 'Propose approval limit'], ['limit.approve', 'Approve approval limit'],
 ]
-const ROLES = ['admin', 'operator', 'technician', 'planner', 'procurement', 'compliance', 'supplier', 'viewer']
+const ROLES = ['admin', 'operator', 'technician', 'planner', 'procurement', 'compliance', 'supplier']
 
 export default function UsersLimits() {
   const { role } = useAuth()

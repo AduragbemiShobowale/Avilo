@@ -32,6 +32,8 @@ export default function ControlTower() {
   const high = open.filter((r) => r.value >= S.limit && !r.aog).length
   const aog = S.requests.filter((q) => q.status === 'Open' && q.priority === 'AOG')
   const pump = S.items['HP-10482']
+  const exc = S.exceptions.filter((x) => x.status === 'Open')
+  const inRepair = Object.values(S.items).filter((i) => i.cond === 'in repair' && i.repair)
   const avgLat = latencies.length ? latencies.reduce((a, b) => a + b, 0) / latencies.length : null
 
   const showStation = (code) => {
@@ -95,7 +97,7 @@ export default function ControlTower() {
         </div>
 
         <div className="stack">
-          <Card title="Needs attention" aside={`${od.length + S.requests.filter((r) => r.status === 'Open').length} items`}>
+          <Card title="Needs attention" aside={`${od.length + S.requests.filter((r) => r.status === 'Open').length + exc.length} items`}>
             <div className="list">
               {od.map((t) => (
                 <div className="li" key={t.trf}>
@@ -108,6 +110,23 @@ export default function ControlTower() {
                   <Link className="btn ghost" to={`/history?id=${encodeURIComponent(t.items[0].id)}`}>History</Link>
                 </div>
               ))}
+              {exc.map((x) => (
+                <div className="li" key={'x' + x.id}>
+                  <span className="sev bad" />
+                  <div className="grow">
+                    <b>{x.kind} · {x.station}</b>
+                    <span className="small muted">{x.detail}</span>
+                    <span><Chip k="exception">RFID gate · {age(x.ts)} ago</Chip></span>
+                  </div>
+                  {x.object && <Link className="btn ghost" to={`/history?id=${encodeURIComponent(x.object)}`}>History</Link>}
+                </div>
+              ))}
+              {inRepair.length > 0 && (
+                <div className="li">
+                  <span className="sev loc" />
+                  <div className="grow"><b>{inRepair.length} rotable{inRepair.length > 1 ? 's' : ''} at the repair vendor</b><span className="small muted">{inRepair.map((i) => `${i.id} (${i.repair.ro}, ${age(i.repair.ts)})`).join(' · ')}. Not counted as stock until back and inspected.</span></div>
+                </div>
+              )}
               {S.requests.filter((q) => q.status === 'Open').map((q) => (
                 <div className="li" key={q.id}>
                   <span className={`sev ${q.priority === 'AOG' ? 'bad' : 'loc'}`} />
@@ -126,7 +145,7 @@ export default function ControlTower() {
                   <Link className="btn ghost" to="/replenishment">Review</Link>
                 </div>
               )}
-              {!od.length && !open.length && !aog.length && <Empty>Nothing needs attention.</Empty>}
+              {!od.length && !open.length && !aog.length && !exc.length && <Empty>Nothing needs attention.</Empty>}
             </div>
           </Card>
 

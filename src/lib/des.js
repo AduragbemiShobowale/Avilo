@@ -109,11 +109,14 @@ export function runReplication({ parts, stations, suppliers, seed, scenario = 'n
 
   const m = { demand: 0, filled: 0, stockouts: 0, critical: 0, criticalA: 0, unmetUnits: 0, invValue: 0, orders: 0, transfers: 0, failedTransfers: 0, expedite: 0,
     alerts: 0, falseAlerts: 0, missed: 0, episodes: 0, replenishDays: 0, replenished: 0, lostTransfers: 0, lostFlagged: 0 }
+  // Each supplier's observed lateness: actual / quoted lead time of every delivery so far, across all its parts.
   const supLT = Object.fromEntries(suppliers.map((s) => [s.id, []]))
+  const q = new Heap(), CTX = []
 
+  // All parts share one clock, so what a supplier's late deliveries teach the planner is learnt in time order.
   parts.forEach((p, pi) => {
-    const q = new Heap()
     const S = {}
+    CTX.push({ p, S, lastT: 0 })
     stations.forEach((st, si) => {
       const s = S[st.code] = {
         phys: 0, rec: 0, seen: 0, pipe: [], repairs: [], inbound: [], weeksTot: hist.total[p.pn][st.code].slice(), weeksUn: hist.unscheduled[p.pn][st.code].slice(),
@@ -129,32 +132,34 @@ export function runReplication({ parts, stations, suppliers, seed, scenario = 'n
       for (let d = T0; d < T1; d++) {
         const sp = sc.spike
         const mult = sp && (sp.station === '*' || st.code === sp.station) && p.crit === sp.crit && p.type === 'rotable' && d >= warmup + sp.from && d < warmup + sp.to ? sp.mult : 1
-        for (const o of unscheduled(s.rD, p.pn, stationFH(st.code, d), mult)) q.push({ t: d + o.t, k: 'DEMAND', st: st.code, qty: o.qty, planned: false })
-        for (const c of checksOn(d)) if (c.station === st.code) { const kit = c.type === 'A' ? A_KIT : C_KIT; if (kit[p.pn]) q.push({ t: d + 0.3, k: 'DEMAND', st: st.code, qty: kit[p.pn], planned: true }) }
-        q.push({ t: d + 0.99, k: 'REVIEW', st: st.code })
-        if (d % 7 === 6) q.push({ t: d + 0.995, k: 'WEEK', st: st.code })
+        for (const o of unscheduled(s.rD, p.pn, stationFH(st.code, d), mult)) q.push({ pi, t: d + o.t, k: 'DEMAND', st: st.code, qty: o.qty, planned: false })
+        for (const c of checksOn(d)) if (c.station === st.code) { const kit = c.type === 'A' ? A_KIT : C_KIT; if (kit[p.pn]) q.push({ pi, t: d + 0.3, k: 'DEMAND', st: st.code, qty: kit[p.pn], planned: true }) }
+        q.push({ pi, t: d + 0.99, k: 'REVIEW', st: st.code })
+        if (d % 7 === 6) q.push({ pi, t: d + 0.995, k: 'WEEK', st: st.code })
       }
     })
     if (policy === 'A') {
-      for (let d = 0; d < T1; d += 7) q.push({ t: d + 0.001, k: 'SYNC' })
-      for (let d = 90; d < T1; d += 91) q.push({ t: d + 0.002, k: 'STOCKTAKE' })
+      for (let d = 0; d < T1; d += 7) q.push({ pi, t: d + 0.001, k: 'SYNC' })
+      for (let d = 90; d < T1; d += 91) q.push({ pi, t: d + 0.002, k: 'STOCKTAKE' })
     }
-    for (let d = 28; d < T1; d += 28) q.push({ t: d + 0.005, k: 'PLAN' })
+    for (let d = 28; d < T1; d += 28) q.push({ pi, t: d + 0.005, k: 'PLAN' })
+  })
 
-    const counted = (t) => t >= warmup
-    const known = (s) => (policy === 'A' ? s.seen : s.rec)
-    const inPipe = (s) => s.pipe.reduce((a, o) => a + o.qty, 0) + s.repairs.length
-    const inTransit = (s) => s.inbound.reduce((a, x) => a + (policy === 'A' || x.overdue ? 0 : x.qty), 0)
-    const position = (s) => known(s) + inPipe(s) + inTransit(s)
+  const counted = (t) => t >= warmup
+  const known = (s) => (policy === 'A' ? s.seen : s.rec)
+  const inPipe = (s) => s.pipe.reduce((a, o) => a + o.qty, 0) + s.repairs.length
+  const inTransit = (s) => s.inbound.reduce((a, x) => a + (policy === 'A' || x.overdue ? 0 : x.qty), 0)
+  const position = (s) => known(s) + inPipe(s) + inTransit(s)
+  const stockValue = (c) => stations.reduce((v, st) => v + Math.max(0, c.S[st.code].phys) * c.p.cost, 0)
 
-    let lastT = 0
-    const stockValue = () => stations.reduce((v, st) => v + Math.max(0, S[st.code].phys) * p.cost, 0)
+  {
     while (q.size) {
       const e = q.pop()
       if (e.t >= T1) break
+      const c = CTX[e.pi], { p, S } = c, pi = e.pi
       // inventory value is integrated over time (only after warm-up)
-      if (e.t > warmup) m.invValue += stockValue() * (e.t - Math.max(lastT, warmup))
-      lastT = e.t
+      if (e.t > warmup) m.invValue += stockValue(c) * (e.t - Math.max(c.lastT, warmup))
+      c.lastT = e.t
       const s = e.st ? S[e.st] : null
       switch (e.k) {
         case 'DEMAND': {
@@ -163,7 +168,7 @@ export function runReplication({ parts, stations, suppliers, seed, scenario = 'n
           if (policy === 'A') { for (let k = 0; k < fill; k++) if (s.rO() >= missRate) s.rec-- }
           else s.rec -= fill
           s.curTot += e.qty; if (!e.planned) s.curUn += e.qty
-          if (p.type === 'rotable' && !e.planned) for (let k = 0; k < e.qty; k++) if (s.rO() < 0.88) { const back = e.t + 21 + s.rO() * 14; s.repairs.push(back); q.push({ t: back, k: 'REPAIR', st: e.st }) }
+          if (p.type === 'rotable' && !e.planned) for (let k = 0; k < e.qty; k++) if (s.rO() < 0.88) { const back = e.t + 21 + s.rO() * 14; s.repairs.push(back); q.push({ pi, t: back, k: 'REPAIR', st: e.st }) }
           if (counted(e.t)) {
             m.demand += e.qty; m.filled += fill
             s.demandLog.push({ t: e.t, qty: e.qty })
@@ -180,7 +185,7 @@ export function runReplication({ parts, stations, suppliers, seed, scenario = 'n
         case 'ARRIVAL': {
           const o = s.pipe.find((x) => x.id === e.id); s.pipe.splice(s.pipe.indexOf(o), 1)
           s.phys += o.qty; s.outEp = false; s.rec += o.qty; s.arrivalsLog.push({ t: e.t, qty: o.qty })
-          supLT[p.sup].push(e.t - o.placed)
+          supLT[p.sup].push((e.t - o.placed) / p.lead)
           if (counted(e.t)) { m.replenishDays += e.t - o.need; m.replenished++ }
           break
         }
@@ -192,7 +197,7 @@ export function runReplication({ parts, stations, suppliers, seed, scenario = 'n
         }
         case 'FLAG': { // the ledger flags the overdue transfer; it stops counting as inbound and a trace starts
           const x = s.inbound.find((y) => y.id === e.id)
-          if (x && x.lost) { x.overdue = true; if (counted(e.t)) m.lostFlagged++; q.push({ t: e.t + TRACE_DAYS, k: 'FOUND', st: e.st, id: e.id }) }
+          if (x && x.lost) { x.overdue = true; if (counted(e.t)) m.lostFlagged++; q.push({ pi, t: e.t + TRACE_DAYS, k: 'FOUND', st: e.st, id: e.id }) }
           break
         }
         case 'FOUND': { // the trace locates the unit and it is received
@@ -208,7 +213,7 @@ export function runReplication({ parts, stations, suppliers, seed, scenario = 'n
             const z = S[st.code]
             if (policy === 'C') {
               const lt = supLT[p.sup].slice(-8)
-              const leadDays = lt.length >= 3 ? mean(lt) + 1.0 * sd(lt) : p.lead
+              const leadDays = lt.length >= 3 ? p.lead * Math.max(1, mean(lt) + sd(lt)) : p.lead
               const ap = aviloPlan(p, st.code, z.weeksUn, leadDays, Math.floor(e.t))
               z.base = ap; z.leadDays = leadDays; z.fhRatio = ap.fhRatio
             } else z.plan = classicPlan(p, z.weeksTot)
@@ -251,8 +256,8 @@ export function runReplication({ parts, stations, suppliers, seed, scenario = 'n
               if (dn.phys >= qty) {
                 dn.phys -= qty; dn.rec -= qty; if (policy === 'A') dn.seen -= qty
                 const id = `${pi}-${e.t}-x`, at = e.t + 2, booked = s.rO() >= sc.lostRate
-                s.inbound.push({ id, qty, at, booked, arrived: false, exp: e.t + 2 }); q.push({ t: at, k: 'TRANSFER', st: e.st, id })
-                if (!booked && policy !== 'A') q.push({ t: e.t + OVERDUE_DAYS, k: 'FLAG', st: e.st, id })
+                s.inbound.push({ id, qty, at, booked, arrived: false, exp: e.t + 2 }); q.push({ pi, t: at, k: 'TRANSFER', st: e.st, id })
+                if (!booked && policy !== 'A') q.push({ pi, t: e.t + OVERDUE_DAYS, k: 'FLAG', st: e.st, id })
                 if (counted(e.t)) m.transfers++
                 need -= qty
               } else if (counted(e.t)) m.failedTransfers++ // the record said it was there; the shelf was empty
@@ -263,7 +268,7 @@ export function runReplication({ parts, stations, suppliers, seed, scenario = 'n
               const lt = p.lead * slip * dl * (0.8 + 0.4 * s.rO())
               const id = `${pi}-${e.t}`, at = e.t + lt
               s.pipe.push({ id, qty: need, at, placed: e.t, need: s.trigT ?? e.t, exp: e.t + (policy === 'C' ? (s.leadDays || p.lead) : p.lead) })
-              q.push({ t: at, k: 'ARRIVAL', st: e.st, id })
+              q.push({ pi, t: at, k: 'ARRIVAL', st: e.st, id })
               if (counted(e.t)) m.orders++
             }
           } else s.trigT = null
@@ -271,13 +276,15 @@ export function runReplication({ parts, stations, suppliers, seed, scenario = 'n
         }
       }
     }
-    if (lastT < T1) m.invValue += stockValue() * (T1 - Math.max(lastT, warmup))
+  }
+  for (const c of CTX) {
+    if (c.lastT < T1) m.invValue += stockValue(c) * (T1 - Math.max(c.lastT, warmup))
     // score alerts once all demand is known
-    for (const st of stations) for (const a of S[st.code].alerts) {
-      const d = S[st.code].demandLog.filter((x) => x.t > a.t && x.t <= a.t + a.L).reduce((s2, x) => s2 + x.qty, 0)
+    for (const st of stations) for (const a of c.S[st.code].alerts) {
+      const d = c.S[st.code].demandLog.filter((x) => x.t > a.t && x.t <= a.t + a.L).reduce((s2, x) => s2 + x.qty, 0)
       if (d <= a.have) m.falseAlerts++
     }
-  })
+  }
   m.invValue /= days
   m.fillRate = m.filled / Math.max(1, m.demand)
   m.falseAlertRate = m.alerts ? m.falseAlerts / m.alerts : 0
