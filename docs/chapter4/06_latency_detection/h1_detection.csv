@@ -1,0 +1,4 @@
+discrepancy,seeded,detected,detection_rate,false_flags,controls,rule
+"Lost transfers (sent 80 h ago, never received)",10,10,1.000,0,10,Overdue after 72 h
+ERP record mismatches,10,10,1.000,0,56,Line-by-line reconciliation
+Stock leaving with no transfer (gate),5,5,1.000,,,RFID goods-out read checked against the ledger
