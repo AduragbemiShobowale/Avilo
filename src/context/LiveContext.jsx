@@ -56,7 +56,12 @@ export function LiveProvider({ children }) {
   const timer = useRef(0)
 
   const reload = useCallback(async () => {
-    try { setS(await loadState()); setError(null) } catch (e) { setError(e.message) }
+    try {
+      const st = await loadState()
+      setS(st); setError(null)
+      // Test hook for the H1 harness: which ledger event this browser has loaded, and when.
+      window.__avilo = { rpc, lastEventId: st.events.length ? st.events[st.events.length - 1].dbid : 0, loadedAt: performance.now() }
+    } catch (e) { setError(e.message) }
   }, [])
 
   useEffect(() => {
@@ -68,10 +73,19 @@ export function LiveProvider({ children }) {
         delete pending.current[p.new.id]
         setLatencies((x) => x.concat(l).slice(-20))
       }
+      window.__aviloRt = (window.__aviloRt || 0) + 1
       clearTimeout(timer.current)
       timer.current = setTimeout(reload, 250)
-    }).subscribe()
-    return () => { supabase.removeChannel(ch) }
+    }).subscribe((status, err) => {
+      (window.__aviloCh = window.__aviloCh || []).push([Math.round(performance.now()), status, err ? String(err.message || err) : ''])
+      // Changes made while the channel was joining or reconnecting are never replayed, so catch up on (re)join.
+      if (status === 'SUBSCRIBED') reload()
+    })
+    // Safety net: refresh when the tab comes back into view, and once a minute regardless.
+    const onVis = () => { if (!document.hidden) reload() }
+    document.addEventListener('visibilitychange', onVis)
+    const every = setInterval(() => { if (!document.hidden) reload() }, 60000)
+    return () => { supabase.removeChannel(ch); document.removeEventListener('visibilitychange', onVis); clearInterval(every) }
   }, [session, reload])
 
   // Scanner simulator: posts stock issues through the same server door as a real scanner.
