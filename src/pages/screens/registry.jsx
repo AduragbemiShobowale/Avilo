@@ -15,6 +15,7 @@ import HowItWorks from '../help/HowItWorks'
 import ErpImport from '../erp/ErpImport'
 import LeadTimes from '../plan/LeadTimes'
 import VisibilityTest from '../evidence/VisibilityTest'
+import H3Session from '../evidence/H3Session'
 
 // Counts beside menu items, computed from what the signed-in role can read.
 const openRecs = (S) => AV.recommend(S).filter((r) => !r.decision || r.decision.status === 'Awaiting second approval').length
@@ -47,6 +48,7 @@ const S_ = {
   overview: { path: '/', label: 'Overview', icon: 'home', group: 'Start', component: Overview, guide: 'Overview' },
   erp: { path: '/erp', label: 'ERP reconciliation', icon: 'upload', group: 'Control', component: ErpImport, guide: 'ErpImport' },
   leadTimes: { path: '/lead-times', label: 'Supplier lead times', icon: 'gauge', group: 'Plan', component: LeadTimes, guide: 'LeadTimes' },
+  h3: { path: '/h3-session', label: 'H3 session', icon: 'clock', group: 'Evidence', component: H3Session, guide: 'H3Session' },
   visibility: { path: '/visibility-test', label: 'Visibility test', icon: 'bolt', group: 'Evidence', component: VisibilityTest, guide: 'VisibilityTest' },
   help: { path: '/how-it-works', label: 'How Avilo works', icon: 'help', group: 'Help', component: HowItWorks, guide: 'HowItWorks' },
 }
@@ -59,6 +61,6 @@ export const SCREENS = {
   procurement: [S_.replenHome, S_.towerView, S_.forecast, S_.leadTimes, S_.find, S_.history, S_.access, S_.lab, S_.help],
   compliance: [S_.quality, S_.towerView, S_.find, S_.history, S_.audit, S_.help],
   supplier: [S_.orders, S_.help],
-  admin: [S_.overview, S_.access, S_.audit, S_.erp, S_.towerView, S_.find, S_.history, S_.lab, S_.visibility, S_.help],
-  superadmin: [S_.overview, S_.audit, S_.access, S_.erp, S_.towerView, S_.find, S_.history, S_.lab, S_.visibility, S_.help],
+  admin: [S_.overview, S_.access, S_.audit, S_.erp, S_.towerView, S_.find, S_.history, S_.lab, S_.visibility, S_.h3, S_.help],
+  superadmin: [S_.overview, S_.audit, S_.access, S_.erp, S_.towerView, S_.find, S_.history, S_.lab, S_.visibility, S_.h3, S_.help],
 }

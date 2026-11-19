@@ -6,6 +6,7 @@ import Intro from './components/Intro'
 import { Login, Forgot, SetPassword, AuthFrame } from './pages/auth/AuthPages'
 import { SCREENS } from './pages/screens/registry'
 import MyAccount from './pages/help/MyAccount'
+import { rpc } from './lib/supabase'
 
 // Signed out: sign in or reset a password. Accounts are created by the organisation, never self-registered.
 export default function App() {
@@ -21,7 +22,7 @@ export default function App() {
 }
 
 function Screens() {
-  const { session, profile, role, recovery, error, signOut } = useAuth()
+  const { session, profile, role, recovery, error, signOut, reloadProfile } = useAuth()
 
   if (!session) {
     return (
@@ -42,6 +43,17 @@ function Screens() {
       </AuthFrame>
     )
   }
+
+  if (profile.active === false) {
+    return (
+      <AuthFrame label="Account">
+        <h1>This account has been deactivated</h1>
+        <p className="muted">Ask your administrator if you think this is a mistake. Everything you did in Avilo stays in the audit log.</p>
+        <button className="btn" onClick={signOut}>Sign out</button>
+      </AuthFrame>
+    )
+  }
+  if (profile.must_change_password) return <SetPassword first onSaved={async () => { await rpc('password_changed'); await reloadProfile() }} />
 
   return (
     <Routes>
