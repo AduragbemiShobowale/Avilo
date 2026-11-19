@@ -9,13 +9,13 @@ const ms = (t) => (t ? Date.parse(t) : null)
 
 // Turns database rows into the shapes the engine works with.
 async function loadState() {
-  const [profiles, events, requests, pos, decisions, tasks, audit, settings, exceptions, notes, reads, sensor, batches, readers] = await Promise.all([
+  const [profiles, events, requests, pos, decisions, tasks, audit, settings, exceptions, notes, reads, sensor, batches, readers, accReqs, h3] = await Promise.all([
     readAll('profiles', 'name'), readAll('events', 'id'), readAll('requests', 'ts'), readAll('pos', 'id'),
     readAll('rec_decisions', 'updated_at'), readAll('tasks', 'id'), readAll('audit', 'id'), readAll('settings', 'key'),
     readAll('exceptions', 'id'), readAll('notifications', 'id'), readAll('notification_reads', 'notification'), readAll('sensor_reads', 'id'),
-    readAll('erp_batches', 'id'), readAll('readers', 'id'),
+    readAll('erp_batches', 'id'), readAll('readers', 'id'), readAll('account_requests', 'id'), readAll('h3_log', 'id'),
   ])
-  AV.users = profiles.map((p) => ({ id: p.id, handle: p.handle, name: p.name, role: p.role, scope: p.scope || [], supplier: p.supplier, email: p.email }))
+  AV.users = profiles.map((p) => ({ id: p.id, handle: p.handle, name: p.name, role: p.role, scope: p.scope || [], supplier: p.supplier, email: p.email, active: p.active !== false, mustChange: !!p.must_change_password, createdAt: ms(p.created_at) }))
   AV.userBy = Object.fromEntries(AV.users.map((u) => [u.id, u]))
   const S = {
     events: events.map((e) => ({ id: 'EV-' + String(e.id).padStart(5, '0'), dbid: e.id, ts: ms(e.ts), type: e.type, item: e.item, pn: e.pn, qty: e.qty == null ? null : Number(e.qty), from: e.from_st, to: e.to_st, trf: e.trf, ref: e.ref, aircraft: e.aircraft, cond: e.cond, cert: e.cert, reason: e.reason, expiry: ms(e.expiry), actor: e.actor, source: e.source })),
@@ -30,6 +30,8 @@ async function loadState() {
     sensorReads: sensor.map((r) => ({ id: r.id, ts: ms(r.ts), reader: r.reader, item: r.item, result: r.result })).sort((a, b) => b.ts - a.ts),
     erpBatches: batches.map((b) => ({ id: b.id, ts: ms(b.ts), by: b.by_user, filename: b.filename, system: b.system, rows: b.rows, rejected: b.rejected || [] })),
     readers,
+    h3Log: h3.map((r) => ({ ...r, ts: ms(r.ts) })),
+    accountRequests: accReqs.map((q) => ({ id: q.id, ts: ms(q.ts), kind: q.kind, target: q.target, email: q.email, name: q.name, role: q.role, scope: q.scope || [], supplier: q.supplier, by: q.requested_by, status: q.status, decidedBy: q.decided_by, decidedAt: ms(q.decided_at) })).sort((a, b) => b.id - a.id),
     limit: 5000,
     pendingLimit: null,
   }
@@ -56,7 +58,12 @@ export function LiveProvider({ children }) {
   const timer = useRef(0)
 
   const reload = useCallback(async () => {
-    try { setS(await loadState()); setError(null) } catch (e) { setError(e.message) }
+    try {
+      const st = await loadState()
+      setS(st); setError(null)
+      // Test hook for the H1 harness: which ledger event this browser has loaded, and when.
+      window.__avilo = { rpc, lastEventId: st.events.length ? st.events[st.events.length - 1].dbid : 0, loadedAt: performance.now() }
+    } catch (e) { setError(e.message) }
   }, [])
 
   useEffect(() => {
@@ -68,10 +75,19 @@ export function LiveProvider({ children }) {
         delete pending.current[p.new.id]
         setLatencies((x) => x.concat(l).slice(-20))
       }
+      window.__aviloRt = (window.__aviloRt || 0) + 1
       clearTimeout(timer.current)
       timer.current = setTimeout(reload, 250)
-    }).subscribe()
-    return () => { supabase.removeChannel(ch) }
+    }).subscribe((status, err) => {
+      (window.__aviloCh = window.__aviloCh || []).push([Math.round(performance.now()), status, err ? String(err.message || err) : ''])
+      // Changes made while the channel was joining or reconnecting are never replayed, so catch up on (re)join.
+      if (status === 'SUBSCRIBED') reload()
+    })
+    // Safety net: refresh when the tab comes back into view, and once a minute regardless.
+    const onVis = () => { if (!document.hidden) reload() }
+    document.addEventListener('visibilitychange', onVis)
+    const every = setInterval(() => { if (!document.hidden) reload() }, 60000)
+    return () => { supabase.removeChannel(ch); document.removeEventListener('visibilitychange', onVis); clearInterval(every) }
   }, [session, reload])
 
   // Scanner simulator: posts stock issues through the same server door as a real scanner.

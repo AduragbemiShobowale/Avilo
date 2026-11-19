@@ -142,7 +142,7 @@ export function Forgot() {
 }
 
 // Used from a reset link (inside the frame) and from Account (inside the app).
-export function SetPassword({ inApp }) {
+export function SetPassword({ inApp, first, onSaved }) {
   const { endRecovery } = useAuth()
   const [p1, setP1] = useState('')
   const [p2, setP2] = useState('')
@@ -158,12 +158,13 @@ export function SetPassword({ inApp }) {
     if (error) return toast.error(error.message)
     toast.success('Password saved.')
     setP1(''); setP2('')
+    if (onSaved) await onSaved()
     endRecovery()
     nav('/')
   }
   const body = (
     <>
-      <div>{inApp ? <h1>Change your password</h1> : <h2 className="glass-title">Choose a new password</h2>}</div>
+      <div>{inApp ? <h1>Change your password</h1> : <h2 className="glass-title">{first ? 'Welcome to Avilo: choose your password' : 'Choose a new password'}</h2>}{first && <p className="muted small">Your administrator gave you a temporary password. Choose your own before you continue; nobody else will know it.</p>}</div>
       <form className="stack" onSubmit={submit}>
         <label className="field">New password <span className="hint">At least 8 characters</span><PasswordInput autoComplete="new-password" value={p1} onChange={(e) => setP1(e.target.value)} required /></label>
         <label className="field">Type it again<PasswordInput autoComplete="new-password" value={p2} onChange={(e) => setP2(e.target.value)} required /></label>

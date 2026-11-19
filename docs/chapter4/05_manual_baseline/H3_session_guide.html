@@ -1,0 +1,198 @@
+<title>H3 Session Guide</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Outfit:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column, a run-sheet for a two-person timed trial; navy and locator blue from the Avilo brand. */
+:root {
+  --bg: #F3F6FA; --card: #FFFFFF; --ink: #0B1A2C; --muted: #52627A; --line: #D9E0EA;
+  --navy: #0B2545; --accent: #1B96D2; --tint: #E3F2FA; --a: #0A6FA6; --b: #8A4B0F; --a-bg: #E3F2FA; --b-bg: #FBEEDF;
+  --warn: #9A5B00; --warn-bg: #FFF4E0; --ok: #166B3B;
+  --display: "Outfit", "Segoe UI", system-ui, sans-serif; --text: "Inter", "Segoe UI", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #07131F; --card: #0F2034; --ink: #E8EFF7; --muted: #9AABC0; --line: #22354B; --navy: #E8EFF7; --accent: #5CC3F0; --tint: #10344F;
+  --a: #5CC3F0; --b: #F0A73A; --a-bg: #10344F; --b-bg: #3A2A12; --warn: #F0A73A; --warn-bg: #3A2A12; --ok: #45C47E; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #07131F; --card: #0F2034; --ink: #E8EFF7; --muted: #9AABC0; --line: #22354B; --navy: #E8EFF7; --accent: #5CC3F0; --tint: #10344F;
+  --a: #5CC3F0; --b: #F0A73A; --a-bg: #10344F; --b-bg: #3A2A12; --warn: #F0A73A; --warn-bg: #3A2A12; --ok: #45C47E; color-scheme: dark }
+* { box-sizing: border-box }
+body { background: var(--bg); color: var(--ink); font: 15px/1.6 var(--text); }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 32px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 28px }
+header { display: grid; gap: 10px }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--accent) }
+h1 { font: 700 clamp(28px, 5vw, 40px)/1.1 var(--display); margin: 0; color: var(--navy); text-wrap: balance }
+h2 { font: 600 22px/1.25 var(--display); margin: 0; color: var(--navy); text-wrap: balance }
+h3 { font: 600 16px/1.3 var(--display); margin: 0 }
+p { margin: 0; max-width: 68ch }
+.lead { color: var(--muted); font-size: 16px }
+.facts { display: flex; flex-wrap: wrap; gap: 8px }
+.fact { font: 500 12px/1 var(--mono); padding: 7px 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--card) }
+section { display: grid; gap: 14px }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; display: grid; gap: 12px; min-width: 0 }
+.who { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px }
+.person { border-radius: 12px; padding: 16px 18px; display: grid; gap: 6px }
+.person.a { background: var(--a-bg) } .person.b { background: var(--b-bg) }
+.tag { font: 600 11px/1 var(--mono); letter-spacing: .06em; padding: 4px 7px; border-radius: 4px; white-space: nowrap; display: inline-block; vertical-align: 1px }
+.tag.a { color: var(--a); border: 1px solid var(--a) } .tag.b { color: var(--b); border: 1px solid var(--b) } .tag.t { color: var(--muted); border: 1px solid var(--muted) }
+ol.steps { margin: 0; padding: 0; list-style: none; counter-reset: s; display: grid; gap: 10px }
+ol.steps > li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 10px; align-items: start }
+ol.steps > li::before { content: counter(s); font: 600 13px/28px var(--mono); text-align: center; width: 28px; height: 28px; border-radius: 50%; background: var(--tint); color: var(--accent) }
+ol.steps > li > div { min-width: 0; display: grid; gap: 4px }
+ul { margin: 0; padding-left: 20px; display: grid; gap: 4px }
+code, .mono { font: 500 13px/1.4 var(--mono); background: var(--tint); padding: 1px 5px; border-radius: 4px; overflow-wrap: anywhere }
+.tbl { overflow-x: auto } table { border-collapse: collapse; width: 100%; font-size: 14px; min-width: 560px }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top }
+th { font: 600 11px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted) }
+td.num { font-variant-numeric: tabular-nums; white-space: nowrap }
+.block { display: grid; grid-template-columns: 74px 1fr; gap: 12px; align-items: start; padding: 12px 0; border-bottom: 1px dashed var(--line) }
+.block:last-child { border-bottom: 0 }
+.block b.t { font: 600 13px/1.3 var(--mono); color: var(--accent) }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px }
+.note { border-left: 3px solid var(--warn); background: var(--warn-bg); padding: 12px 14px; border-radius: 0 8px 8px 0; display: grid; gap: 6px }
+.small { font-size: 13px; color: var(--muted) }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto } }
+</style>
+
+<div class="wrap">
+  <header>
+    <span class="eyebrow">Capstone · Hypothesis H3 · Volunteer run-sheet</span>
+    <h1>H3 session guide</h1>
+    <p class="lead">Two people place the same kind of replenishment order twenty times: ten the way most MRO stores do it today (a spreadsheet and e-mail), ten in Avilo. The timer screen records how long each order takes, from the moment the order card is handed over until the part is back on the shelf, serviceable.</p>
+    <div class="facts"><span class="fact">2 people</span><span class="fact">3 devices</span><span class="fact">≈ 3 hours on the day</span><span class="fact">10 matched pairs of orders</span><span class="fact">Pass mark: Avilo ≥ 30% faster</span></div>
+  </header>
+
+  <section>
+    <h2>Who does what</h2>
+    <p>Every role has its own Avilo account, so the system's rules (two approvals above USD 5,000, the receiver cannot certify the same part) still apply even though two people play all the roles. Keep the same split in both methods.</p>
+    <div class="who">
+      <div class="person a"><h3><span class="tag a">PERSON A</span> Airline office</h3><p>Supply Chain Planner<br>Compliance Officer<br>Starts each order on the timer screen</p></div>
+      <div class="person b"><h3><span class="tag b">PERSON B</span> Approver, stores and suppliers</h3><p>Procurement Manager<br>Stores Operator (all four stations)<br>Supplier: Halcyon Aero Spares<br>Supplier: Kestrel Rotables</p></div>
+    </div>
+    <p class="small">Why the suppliers sit with Person B: the Planner must send orders to someone else, otherwise Person A would be e-mailing themselves in the manual method.</p>
+  </section>
+
+  <section>
+    <h2>What you need</h2>
+    <div class="card">
+      <ul>
+        <li><b>Laptop for Person A</b> with Chrome and 2 Chrome profiles: <code>Planner</code>, <code>Compliance</code>.</li>
+        <li><b>Laptop for Person B</b> with Chrome and 4 Chrome profiles: <code>Procurement</code>, <code>Stores</code>, <code>Halcyon</code>, <code>Kestrel</code>. (Chrome: profile picture at the top right → Add → Continue without an account → name it.)</li>
+        <li><b>Timer device</b> (a tablet, phone or third laptop) placed between you, signed in to Avilo as the Admin, open on <b>H3 session</b>. Anyone may tap it.</li>
+        <li>Each person's <b>own e-mail</b>, open on their laptop, for the manual method. Exchange addresses before you start.</li>
+        <li>The manual workbook for <b>Set A</b> (<code>H3_manual_workbook_Set_A.xlsx</code>) uploaded once to Excel Online or Google Sheets and shared so you both edit the same copy. Also upload <b>Set B</b> for the practice round.</li>
+        <li>The Admin login for Avilo (<code>admin@avilo.test</code>) and the existing Procurement Manager login (<code>procurement@avilo.test</code>). Their passwords were given to you privately; they are not in this guide.</li>
+      </ul>
+    </div>
+    <div class="note"><b>Before the day</b><p>Check whether your university needs ethics approval for a session with volunteers, and have both volunteers sign a consent form. No personal data is recorded: Avilo only stores the role accounts and the timings.</p></div>
+  </section>
+
+  <section>
+    <h2>Part 1 · Create your accounts <span class="small">(≈ 25 min, not timed)</span></h2>
+    <p>This is also a test of Avilo's account rules, so do it in the app rather than asking anyone to set accounts up for you. No e-mail is sent, so use the made-up addresses below.</p>
+    <div class="card">
+      <ol class="steps">
+        <li><div><b>On the timer device, sign in as the Admin</b> and open <b>Users &amp; limits</b>. Scroll to <b>Accounts</b>.</div></li>
+        <li><div><b>Request these six accounts</b>, one at a time (full name, e-mail, role, then <b>Request account</b>):
+          <div class="tbl"><table>
+            <thead><tr><th>Full name</th><th>E-mail</th><th>Role</th><th>Extra</th><th>Approval</th></tr></thead>
+            <tbody>
+              <tr><td>[A's name] (Planner)</td><td class="mono">planner.a@h3.avilo.test</td><td>Supply Chain Planner</td><td>–</td><td>Needed</td></tr>
+              <tr><td>[A's name] (Compliance)</td><td class="mono">compliance.a@h3.avilo.test</td><td>Compliance Officer</td><td>–</td><td>Needed</td></tr>
+              <tr><td>[B's name] (Procurement)</td><td class="mono">procurement.b@h3.avilo.test</td><td>Procurement Manager</td><td>–</td><td>Needed</td></tr>
+              <tr><td>[B's name] (Stores)</td><td class="mono">stores.b@h3.avilo.test</td><td>Stores Operator</td><td>Tick LHR, SIN, LOS and DXB</td><td>Not needed</td></tr>
+              <tr><td>[B's name] (Halcyon)</td><td class="mono">halcyon.b@h3.avilo.test</td><td>Supplier</td><td>Halcyon Aero Spares</td><td>Not needed</td></tr>
+              <tr><td>[B's name] (Kestrel)</td><td class="mono">kestrel.b@h3.avilo.test</td><td>Supplier</td><td>Kestrel Rotables</td><td>Not needed</td></tr>
+            </tbody>
+          </table></div></div></li>
+        <li><div><span class="tag b">B</span> <b>Approve the three powerful accounts.</b> On Person B's laptop, in any profile, sign in as the existing Procurement Manager <code>procurement@avilo.test</code>, open <b>Users &amp; limits</b> and press <b>Approve</b> on the Planner, Compliance and Procurement requests. Then sign out of that profile.</div></li>
+        <li><div><b>Issue the logins.</b> Back on the timer device (Admin), press <b>Create account</b> on each of the six. A box shows the e-mail and a <b>temporary password, shown only once</b>: write each one down.</div></li>
+        <li><div><b>First sign-in.</b> In each Chrome profile, open Avilo and sign in with that profile's account and temporary password. Avilo asks you to choose your own password; do it, and stay signed in. <span class="tag a">A</span> Planner, Compliance. <span class="tag b">B</span> Procurement, Stores, Halcyon, Kestrel.</div></li>
+        <li><div><b>Check.</b> On the timer device, Users &amp; limits should list all six as <b>Active</b>. Leave every profile signed in for the rest of the day.</div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>Part 2 · How one order runs</h2>
+    <p>Each order starts the same way: Person A taps <b>Start · hand over card</b> on the timer screen and reads the card aloud. The card names the part, the station and the supplier. Always buy from that supplier; never transfer stock between stations.</p>
+    <div class="two">
+      <div class="card">
+        <h3>Manual method (spreadsheet + e-mail)</h3>
+        <ol class="steps">
+          <li><div><span class="tag a">A</span> Planner finds the part and station on the <b>Stock</b> sheet. Quantity = <i>Order up to</i> − <i>On hand</i> (at least 1). Fill the next line of <b>Purchase orders</b>.</div></li>
+          <li><div><span class="tag a">A</span> If the value says <b>YES</b> (USD 5,000 or more), e-mail B for approval; <span class="tag b">B</span> replies “Approved”. Below 5,000 the Planner's own approval is enough.</div></li>
+          <li><div>Whoever gave the final approval taps <b>Order fully approved</b>.</div></li>
+          <li><div><span class="tag a">A</span> E-mails the order to the supplier. <span class="tag b">B</span> replies “Confirmed, delivery by [date]” and taps <b>Supplier confirmed</b>.</div></li>
+          <li><div><span class="tag b">B</span> As Stores: add a line to <b>Goods received</b> with any certificate number (e.g. <code>FORM1-1234</code>), add the quantity to <i>On hand</i>, tap <b>Delivery received</b>, and e-mail A to inspect it.</div></li>
+          <li><div><span class="tag a">A</span> As Compliance: check the certificate number in the e-mail matches the <b>Goods received</b> line, fill a line in <b>Certificates</b>, tap <b>Released serviceable</b>. Done.</div></li>
+        </ol>
+        <p class="small">E-mail templates are on the workbook's “Read me” sheet.</p>
+      </div>
+      <div class="card">
+        <h3>Avilo</h3>
+        <ol class="steps">
+          <li><div><span class="tag a">A</span> <b>Planner</b> profile → <b>Replenishment</b>. Find the card for that part and station (the quantity is already worked out) and press <b>Approve</b>.</div></li>
+          <li><div><span class="tag b">B</span> If it shows a second approval step: <b>Procurement</b> profile → <b>Replenishment</b> → <b>Approve</b>.</div></li>
+          <li><div><span class="tag b">B</span> <b>Halcyon</b> or <b>Kestrel</b> profile (the bell shows the new order) → <b>My orders</b> → choose a delivery date → <b>Confirm order</b> → <b>Upload Form 1</b> → <b>Mark shipped</b>.</div></li>
+          <li><div><span class="tag b">B</span> <b>Stores</b> profile → <b>Stores</b> → pick the station at the top → under “Work for …” press <b>Receive</b>.</div></li>
+          <li><div><span class="tag a">A</span> <b>Compliance</b> profile → <b>Quality</b> → <b>Verify</b> the delivered part. Done.</div></li>
+        </ol>
+        <p class="small">Nobody taps the timer after Start: Avilo records approval, confirmation, receipt and release itself.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Part 3 · Practice <span class="small">(≈ 20 min, not counted)</span></h2>
+    <div class="card">
+      <ol class="steps">
+        <li><div>On the timer screen set <b>Session name</b> to <code>Practice</code>.</div></li>
+        <li><div><b>Manual practice:</b> choose <b>Manual</b> and <b>Set B</b>, open the Set B workbook, and run <b>order 10</b> all the way through.</div></li>
+        <li><div><b>Avilo practice:</b> choose <b>Avilo</b> and <b>Set A</b>, press <b>Prepare database for Set A</b> → <b>Reset and prepare</b>, wait about 10 seconds, then run <b>order 10</b> all the way through.</div></li>
+        <li><div>Talk through anything that confused you. From here on, nobody explains or helps across roles.</div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>Part 4 · The timed session <span class="small">(≈ 90 min)</span></h2>
+    <p>Set <b>Session name</b> to <code>Team 1</code> and keep it for all four blocks. The order of the blocks (manual, Avilo, Avilo, manual) spreads the learning effect evenly over both methods.</p>
+    <div class="card">
+      <div class="block"><b class="t">Block 1</b><div><b>Manual · Set A · orders 1 to 5.</b> Use the Set A workbook. One order at a time: start the next card only after the previous one is released serviceable.</div></div>
+      <div class="block"><b class="t">Break</b><div>5 minutes.</div></div>
+      <div class="block"><b class="t">Block 2</b><div><b>Avilo · Set B · orders 1 to 5.</b> First choose <b>Avilo</b> and <b>Set B</b> and press <b>Prepare database for Set B</b> → <b>Reset and prepare</b> (this clears the practice data). Wait until the Planner's Replenishment page shows 10 cards, then begin.</div></div>
+      <div class="block"><b class="t">Block 3</b><div><b>Avilo · Set B · orders 6 to 10.</b> Do not prepare again.</div></div>
+      <div class="block"><b class="t">Break</b><div>5 minutes.</div></div>
+      <div class="block"><b class="t">Block 4</b><div><b>Manual · Set A · orders 6 to 10.</b> Switch the timer back to <b>Manual</b> and <b>Set A</b>.</div></div>
+    </div>
+    <div class="note"><b>Rules during the clock</b>
+      <ul>
+        <li>One order at a time. The timer screen warns you if two are running.</li>
+        <li>The clock never stops for mistakes. If something goes wrong (wrong quantity, missed approval, sheet not updated), fix it, carry on, and tap <b>Note a problem</b> with a few words.</li>
+        <li>Use <b>Void</b> only if an order truly cannot be finished (for example the internet drops). Then start that same order again.</li>
+        <li>Do not open Avilo during manual blocks, or the spreadsheet during Avilo blocks.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>Part 5 · Finish</h2>
+    <div class="card">
+      <ol class="steps">
+        <li><div>On the timer screen, scroll to <b>Results</b> and choose <code>Team 1</code>. It shows each pair, the reduction and whether the pass mark was met.</div></li>
+        <li><div>Press <b>Export orders CSV</b> and <b>Export raw log</b>. Download the shared workbook as .xlsx.</div></li>
+        <li><div>Send the three files back for analysis, with a note of anything unusual that happened.</div></li>
+        <li><div>Optional: each volunteer writes two sentences on which method felt easier and why.</div></li>
+      </ol>
+    </div>
+  </section>
+
+  <section>
+    <h2>How the result is judged</h2>
+    <div class="card">
+      <p><b>Time to replenish</b> runs from <i>card handed over</i> to <i>released serviceable</i>. <b>Approval to supplier confirmation</b> runs from the final approval to the supplier's confirmation. Order <i>n</i> of Set A and order <i>n</i> of Set B are a matched pair: the same supplier, the same kind of part and the same approval path (orders 1 to 5 are rotables of USD 5,000 or more and need both approvers; 6 to 10 are consumables below the limit).</p>
+      <p>H3 is <b>supported</b> if Avilo's average time to replenish is at least <b>30% shorter</b> than the manual method's, and the 95% confidence interval of the paired difference lies entirely below zero. This rule is fixed before the session and is not changed afterwards.</p>
+      <p class="small">Limits to report: one team gives ten pairs, so the interval will be wide; two people play several roles each; real shipping time is excluded in both methods. If you can, run a second session on another day with Persons A and B swapped and the sets swapped (manual Set B, Avilo Set A) under the name <code>Team 2</code>; that doubles the evidence.</p>
+    </div>
+  </section>
+</div>
