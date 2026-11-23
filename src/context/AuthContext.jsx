@@ -41,7 +41,7 @@ export function AuthProvider({ children }) {
   const signOut = async () => { await supabase.auth.signOut(); setProfile(null) }
 
   return (
-    <Ctx.Provider value={{ session, profile, role: profile?.role, loading, error, recovery, endRecovery: () => setRecovery(false), signIn, signOut }}>
+    <Ctx.Provider value={{ session, profile, role: profile?.role, loading, error, recovery, endRecovery: () => setRecovery(false), signIn, signOut, reloadProfile: () => loadProfile(session) }}>
       {children}
     </Ctx.Provider>
   )

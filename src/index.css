@@ -152,7 +152,7 @@ tr.sel td { background: var(--locator-tint); }
 button.li { background: none; border: 0; border-bottom: 1px solid var(--line); text-align: left; cursor: pointer; width: 100%; padding-inline: 4px; border-radius: 0; }
 button.li:hover { background: var(--surface-2); }
 .sev { width: 4px; align-self: stretch; border-radius: 2px; background: var(--line); flex: none; }
-.sev.bad { background: var(--bad); } .sev.warn { background: var(--warn); } .sev.loc { background: var(--locator); }
+.sev.bad { background: var(--bad); } .sev.warn { background: var(--warn); } .sev.loc { background: var(--locator); } .sev.ok { background: var(--ok); }
 .why { background: var(--locator-tint); border-radius: var(--r-md); padding: 10px 12px; font-size: 13px; line-height: 20px; }
 .note { font-size: 13px; color: var(--ink-muted); line-height: 20px; }
 .empty { padding: 22px; text-align: center; color: var(--ink-muted); border: 1px dashed var(--line); border-radius: var(--r-md); }
