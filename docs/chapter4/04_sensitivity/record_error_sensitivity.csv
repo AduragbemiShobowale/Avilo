@@ -1,0 +1,31 @@
+unrecorded_issue_rate,metric,label,baseline_mean,framework_mean,pct_change,ci_lo,ci_hi,p
+0,critical,Critical stockouts,73.0333,14,-80.8307,-66.288,-51.7786,0
+0,falseAlerts,False shortage alerts,54.7,5.8,-89.3967,-51.1237,-46.6763,0
+0,missed,Missed shortages,21.0667,14.6333,-30.538,-8.6685,-4.1981,0
+0,invValue,Inventory value,5276787.4661,4167622.2513,-21.0197,-1210592.9199,-1007737.5098,0
+0,fillRate,Fill rate,0.9757,0.9954,2.021,0.0179,0.0215,0
+0.02,critical,Critical stockouts,94.7,14,-85.2165,-87.2468,-74.1532,0
+0.02,falseAlerts,False shortage alerts,54.7,5.8,-89.3967,-51.1107,-46.6893,0
+0.02,missed,Missed shortages,26.8667,14.6333,-45.5335,-14.3808,-10.0859,0
+0.02,invValue,Inventory value,5249335.0308,4167622.2513,-20.6067,-1186643.9666,-976781.5923,0
+0.02,fillRate,Fill rate,0.9688,0.9954,2.7505,0.0246,0.0287,0
+0.04,critical,Critical stockouts,112.3667,14,-87.5408,-104.4871,-92.2462,0
+0.04,falseAlerts,False shortage alerts,53.6,5.8,-89.1791,-49.9266,-45.6734,0
+0.04,missed,Missed shortages,31.9333,14.6333,-54.1754,-19.1269,-15.4731,0
+0.04,invValue,Inventory value,5231449.9111,4167622.2513,-20.3352,-1160404.3458,-967250.9738,0
+0.04,fillRate,Fill rate,0.963,0.9954,3.368,0.0301,0.0347,0
+0.06,critical,Critical stockouts,132.3,14,-89.418,-125.6865,-110.9135,0
+0.06,falseAlerts,False shortage alerts,53.4333,5.8,-89.1454,-49.4505,-45.8161,0
+0.06,missed,Missed shortages,37.6667,14.6333,-61.1504,-25.0295,-21.0371,0
+0.06,invValue,Inventory value,5222964.7428,4167622.2513,-20.2058,-1150033.1126,-960651.8704,0
+0.06,fillRate,Fill rate,0.9562,0.9954,4.0994,0.0364,0.042,0
+0.08,critical,Critical stockouts,163.2667,14,-91.4251,-157.1021,-141.4313,0
+0.08,falseAlerts,False shortage alerts,54.7333,5.8,-89.4032,-51.0085,-46.8582,0
+0.08,missed,Missed shortages,42.6,14.6333,-65.6495,-30.1159,-25.8174,0
+0.08,invValue,Inventory value,5218944.5704,4167622.2513,-20.1443,-1144899.9249,-957744.7133,0
+0.08,fillRate,Fill rate,0.946,0.9954,5.2204,0.0473,0.0515,0
+0.1,critical,Critical stockouts,191.0333,14,-92.6714,-185.0911,-168.9756,0
+0.1,falseAlerts,False shortage alerts,57.5,5.8,-89.913,-53.6978,-49.7022,0
+0.1,missed,Missed shortages,46.8667,14.6333,-68.7767,-34.2155,-30.2512,0
+0.1,invValue,Inventory value,5201817.7689,4167622.2513,-19.8814,-1127531.9306,-940859.1046,0
+0.1,fillRate,Fill rate,0.9357,0.9954,6.3871,0.0573,0.0622,0
